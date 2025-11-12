@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.UPIPinRequest;
 import com.devh.payment_sim.service.UPIPinService;
 
@@ -18,16 +19,16 @@ public class UPIPinController {
     private final UPIPinService upiPinService;
     
     @PostMapping
-    public ResponseEntity<String> setUPIPin(@RequestBody UPIPinRequest request){
+    public ResponseEntity<ApiResponse<String>> setUPIPin(@RequestBody UPIPinRequest request){
         upiPinService.setPin(request.getWalletUpiHandle(), request.getPin());
-        return ResponseEntity.ok("UPI PIN set successfully");
+        return ResponseEntity.ok(ApiResponse.success("UPI PIN set successfully",null));
     }
 
     @PostMapping("/validate")
-    public ResponseEntity<String> validateUPIPin(@RequestBody UPIPinRequest request){
+    public ResponseEntity<ApiResponse<String>> validateUPIPin(@RequestBody UPIPinRequest request){
         boolean isValid = upiPinService.validatePin(request.getWalletUpiHandle(), request.getPin());
         return isValid 
-                ? ResponseEntity.ok("PIN is valid") 
-                : ResponseEntity.status(401).body("Invalid PIN");
+                ? ResponseEntity.ok(ApiResponse.success("PIN is valid", null)) 
+                : ResponseEntity.status(401).body(ApiResponse.success("Invalid PIN", null));
     }
 }

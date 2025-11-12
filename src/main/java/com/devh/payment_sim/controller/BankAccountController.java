@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.LinkAccountRequest;
 import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.service.BankAccountService;
@@ -23,19 +24,19 @@ public class BankAccountController {
     private final BankAccountService bankAccountService;
     
     @PostMapping
-    public ResponseEntity<BankAccount> linkBankAccount(@RequestBody LinkAccountRequest request){
+    public ResponseEntity<ApiResponse<BankAccount>> linkBankAccount(@RequestBody LinkAccountRequest request){
        BankAccount account = bankAccountService.linkAccount(
                 request.getUserId(), 
                 request.getAccountNumber(), 
                 request.getBankName(), 
                 request.getIfscCode());
 
-       return ResponseEntity.ok(account);
+       return ResponseEntity.ok(ApiResponse.success("Bank Account linked successfully", account));
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<List<BankAccount>> listBankAccounts(@PathVariable Long userId){
+    public ResponseEntity<ApiResponse<List<BankAccount>>> listBankAccounts(@PathVariable Long userId){
         List<BankAccount> bankAccounts = bankAccountService.getBankAccountsByUserId(userId);
-        return ResponseEntity.ok(bankAccounts);
+        return ResponseEntity.ok(ApiResponse.success("List of bank accounts fetched successfully by userId", bankAccounts));
     }
 }

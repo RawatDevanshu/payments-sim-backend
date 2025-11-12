@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.UserRequest;
 import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.service.UserService;
@@ -21,15 +22,15 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<User> registerUser(@RequestBody UserRequest request){
+    public ResponseEntity<ApiResponse<User>> registerUser(@RequestBody UserRequest request){
         User savedUser = userService.registerUser(request);
-        return ResponseEntity.ok(savedUser);
+        return ResponseEntity.ok(ApiResponse.success("User registered successfully", savedUser));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUser(@PathVariable Long id){
+    public ResponseEntity<ApiResponse<User>> getUser(@PathVariable Long id){
         return userService.getUserById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(user -> ResponseEntity.ok(ApiResponse.success("User fetched successfully", user)))
+                .orElse(ResponseEntity.status(404).body(ApiResponse.error("User not found")));
     }
 }

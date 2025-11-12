@@ -1,6 +1,7 @@
 package com.devh.payment_sim.service.impl;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
@@ -34,5 +35,14 @@ public class BankAccountServiceImpl implements BankAccountService {
 
         return bankAccountRepository.save(account);
     }
+
+    @Override
+    public List<BankAccount> getBankAccountsByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(()-> new RuntimeException("User not found"));
+        
+        return bankAccountRepository.findByUser(user);
+    }
+    
     
 }

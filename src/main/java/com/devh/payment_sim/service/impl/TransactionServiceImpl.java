@@ -1,6 +1,7 @@
 package com.devh.payment_sim.service.impl;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
@@ -28,7 +29,7 @@ public class TransactionServiceImpl implements TransactionService {
         Wallet reciever = walletRepository.findByUpiHandle(toUpi)
                 .orElseThrow(()-> new RuntimeException("Reciever wallet not found"));
 
-        if(!upiPinService.validatePin(sender.getId(), upiPin)){
+        if(!upiPinService.validatePin(sender.getUpiHandle(), upiPin)){
             throw new RuntimeException("Invalid UPI PIN");
         }
 
@@ -51,6 +52,15 @@ public class TransactionServiceImpl implements TransactionService {
                         .build();
         
         return transactionRepository.save(transaction);
+    }
+
+    @Override
+    public List<Transaction> getTransactionsByWalletUpi(String walletUpiHandle) {
+        Wallet wallet = walletRepository.findByUpiHandle(walletUpiHandle)
+                .orElseThrow(()->new RuntimeException("Wallet not found"));
+        
+        return transactionRepository.findByFromWalletOrToWallet(wallet, wallet);
+
     }
     
 }

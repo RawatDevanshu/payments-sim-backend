@@ -15,6 +15,7 @@ import com.devh.payment_sim.dto.LinkAccountRequest;
 import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.service.BankAccountService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -24,7 +25,7 @@ public class BankAccountController {
     private final BankAccountService bankAccountService;
     
     @PostMapping
-    public ResponseEntity<ApiResponse<BankAccount>> linkBankAccount(@RequestBody LinkAccountRequest request){
+    public ResponseEntity<ApiResponse<BankAccount>> linkBankAccount(@Valid @RequestBody LinkAccountRequest request){
        BankAccount account = bankAccountService.linkAccount(
                 request.getUserId(), 
                 request.getAccountNumber(), 

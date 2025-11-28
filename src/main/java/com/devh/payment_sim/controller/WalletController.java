@@ -8,6 +8,7 @@ import com.devh.payment_sim.dto.CreateWalletRequest;
 import com.devh.payment_sim.model.Wallet;
 import com.devh.payment_sim.service.WalletService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -17,7 +18,7 @@ public class WalletController {
     private final WalletService walletService;
     
     @PostMapping
-    public ResponseEntity<ApiResponse<Wallet>> createWallet(@RequestBody CreateWalletRequest request){
+    public ResponseEntity<ApiResponse<Wallet>> createWallet(@Valid @RequestBody CreateWalletRequest request){
         Wallet wallet = walletService.createWallet(request.getUserId(), request.getUpiHandle());
         return ResponseEntity.ok(ApiResponse.success("Wallet created successfully", wallet));
     }

@@ -10,6 +10,7 @@ import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.UPIPinRequest;
 import com.devh.payment_sim.service.UPIPinService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -19,13 +20,13 @@ public class UPIPinController {
     private final UPIPinService upiPinService;
     
     @PostMapping
-    public ResponseEntity<ApiResponse<String>> setUPIPin(@RequestBody UPIPinRequest request){
+    public ResponseEntity<ApiResponse<String>> setUPIPin(@Valid @RequestBody UPIPinRequest request){
         upiPinService.setPin(request.getWalletUpiHandle(), request.getPin());
         return ResponseEntity.ok(ApiResponse.success("UPI PIN set successfully",null));
     }
 
     @PostMapping("/validate")
-    public ResponseEntity<ApiResponse<String>> validateUPIPin(@RequestBody UPIPinRequest request){
+    public ResponseEntity<ApiResponse<String>> validateUPIPin(@Valid @RequestBody UPIPinRequest request){
         boolean isValid = upiPinService.validatePin(request.getWalletUpiHandle(), request.getPin());
         return isValid 
                 ? ResponseEntity.ok(ApiResponse.success("PIN is valid", null)) 

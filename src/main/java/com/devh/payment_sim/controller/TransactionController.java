@@ -15,6 +15,7 @@ import com.devh.payment_sim.dto.SendMoneyRequest;
 import com.devh.payment_sim.model.Transaction;
 import com.devh.payment_sim.service.TransactionService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -24,7 +25,7 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<Transaction>> sendMoney(@RequestBody SendMoneyRequest request){
+    public ResponseEntity<ApiResponse<Transaction>> sendMoney(@Valid @RequestBody SendMoneyRequest request){
         Transaction transaction = transactionService.sendMoney(
                         request.getFromUpiHandle(), 
                         request.getToUpiHandle(), 

@@ -13,6 +13,7 @@ import com.devh.payment_sim.dto.UserRequest;
 import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.service.UserService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -22,7 +23,7 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<User>> registerUser(@RequestBody UserRequest request){
+    public ResponseEntity<ApiResponse<User>> registerUser(@Valid @RequestBody UserRequest request){
         User savedUser = userService.registerUser(request);
         return ResponseEntity.ok(ApiResponse.success("User registered successfully", savedUser));
     }

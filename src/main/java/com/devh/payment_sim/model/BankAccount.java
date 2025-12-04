@@ -1,6 +1,7 @@
 package com.devh.payment_sim.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,14 +25,16 @@ public class BankAccount {
     private String accountNumber;
 
     @Column(nullable = false)
-    private String bankName;
-
-    @Column(nullable = false)
-    private String ifscCode;
-
-    @Column(nullable = false)
     private BigDecimal balance;
 
     @Column(nullable = false)
-    private boolean isLinked;
+    private String bankPinHash;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }

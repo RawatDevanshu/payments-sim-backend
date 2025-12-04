@@ -17,13 +17,23 @@ public class Transaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Wallet -> Wallet transfer
     @ManyToOne
-    @JoinColumn(name="from_wallet_id", nullable = false)
+    @JoinColumn(name="from_wallet_id")
     private Wallet fromWallet;
 
     @ManyToOne
-    @JoinColumn(name="to_wallet_id", nullable = false)
+    @JoinColumn(name="to_wallet_id")
     private Wallet toWallet;
+
+    // Bank -> Wallet topup OR Wallet -> Bank withdraw
+    @ManyToOne
+    @JoinColumn(name="from_bank_account_id")
+    private BankAccount fromBankAccount;
+
+    @ManyToOne
+    @JoinColumn(name="to_bank_account_id")
+    private BankAccount toBankAccount;
 
     @Column(nullable = false)
     private BigDecimal amount;
@@ -31,6 +41,10 @@ public class Transaction {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransactionStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TransactionType type;
 
     private String remarks;
 

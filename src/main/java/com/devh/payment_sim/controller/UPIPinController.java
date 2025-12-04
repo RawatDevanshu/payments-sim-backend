@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class UPIPinController {
     private final UPIPinService upiPinService;
     
-    @PostMapping
+    @PostMapping("/set")
     public ResponseEntity<ApiResponse<String>> setUPIPin(@Valid @RequestBody UPIPinRequest request){
         upiPinService.setPin(request.getWalletUpiHandle(), request.getPin());
         return ResponseEntity.ok(ApiResponse.success("UPI PIN set successfully",null));

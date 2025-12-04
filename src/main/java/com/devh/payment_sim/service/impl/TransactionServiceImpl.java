@@ -7,6 +7,9 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.devh.payment_sim.exception.InsufficientFundsException;
+import com.devh.payment_sim.exception.InvalidPinException;
+import com.devh.payment_sim.exception.ResourceNotFoundException;
 import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.model.Transaction;
 import com.devh.payment_sim.model.TransactionStatus;
@@ -36,16 +39,16 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         Wallet sender = walletRepository.findByUpiHandle(fromUpi)
-                .orElseThrow(()-> new RuntimeException("Sender wallet not found"));
+                .orElseThrow(()-> new ResourceNotFoundException("Sender's wallet not found: " + fromUpi));
         Wallet reciever = walletRepository.findByUpiHandle(toUpi)
-                .orElseThrow(()-> new RuntimeException("Reciever wallet not found"));
+                .orElseThrow(()-> new ResourceNotFoundException("Reciever's wallet not found: " + toUpi));
 
         if(!upiPinService.validatePin(sender.getUpiHandle(), upiPin)){
-            throw new RuntimeException("Invalid UPI PIN");
+            throw new InvalidPinException("Invalid UPI PIN");
         }
 
         if(sender.getBalance().compareTo(amount) < 0){
-            throw new RuntimeException("Insufficient Balance");
+            throw new InsufficientFundsException("Insufficient Balance");
         }
 
         sender.setBalance(sender.getBalance().subtract(amount));
@@ -68,10 +71,10 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
-    public Transaction topUpFromBank(Long userId, String walletUpiHandle, Long bankAccountId, BigDecimal amount, String rawBankPin, String remarks){
+    public Transaction topUpFromBank(Long userId, String walletUpiHandle, String bankAccountNumber, BigDecimal amount, String rawBankPin, String remarks){
         // 1. Fetch bank account
-        BankAccount bankAccount = bankAccountRepository.findById(bankAccountId)
-                                    .orElseThrow(() -> new RuntimeException("Bank not found"));
+        BankAccount bankAccount = bankAccountRepository.findByAccountNumber(bankAccountNumber)
+                                    .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + bankAccountNumber));
     
         // 2. Verify ownership of bank account
         if(!bankAccount.getUser().getId().equals(userId)){
@@ -80,7 +83,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         // 3. Fetch wallet
         Wallet recieverWallet = walletRepository.findByUpiHandle(walletUpiHandle)
-                .orElseThrow(()-> new RuntimeException("Sender wallet not found"));
+                .orElseThrow(()-> new ResourceNotFoundException("Reciever's wallet not found: " + walletUpiHandle));
         
         // 4. Verify ownership of wallet
         if(!recieverWallet.getUser().getId().equals(userId)){
@@ -89,12 +92,12 @@ public class TransactionServiceImpl implements TransactionService {
 
         // 5. Verify PIN
         if(!BCrypt.checkpw(rawBankPin, bankAccount.getBankPinHash())){
-            throw new IllegalArgumentException("Invalid UPI PIN");
+            throw new InvalidPinException("Invalid UPI PIN");
         }
 
         // 6. Check Balance
         if(bankAccount.getBalance().compareTo(amount) < 0){
-            throw new IllegalArgumentException("Insufficient bank balance");
+            throw new InsufficientFundsException("Insufficient bank balance");
         }
 
         // 7. Deduct from bank
@@ -120,10 +123,10 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
-    public Transaction withdrawFromWallet(Long userId, String walletUpiHandle, Long bankAccountId, BigDecimal amount, String rawWalletPin, String remarks){
+    public Transaction withdrawFromWallet(Long userId, String walletUpiHandle, String bankAccountNumber, BigDecimal amount, String rawWalletPin, String remarks){
         // 1. Fetch bank account
-        BankAccount bankAccount = bankAccountRepository.findById(bankAccountId)
-                                    .orElseThrow(() -> new RuntimeException("Bank not found"));
+        BankAccount bankAccount = bankAccountRepository.findByAccountNumber(bankAccountNumber)
+                                    .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + bankAccountNumber));
     
         // 2. Verify ownership of bank account
         if(!bankAccount.getUser().getId().equals(userId)){
@@ -132,7 +135,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         // 3. Fetch wallet
         Wallet senderWallet = walletRepository.findByUpiHandle(walletUpiHandle)
-                .orElseThrow(()-> new RuntimeException("Sender wallet not found"));
+                .orElseThrow(()-> new ResourceNotFoundException("Sender's wallet not found: " + walletUpiHandle));
         
         // 4. Verify ownership of wallet
         if(!senderWallet.getUser().getId().equals(userId)){
@@ -141,12 +144,12 @@ public class TransactionServiceImpl implements TransactionService {
 
         // 5. Verify PIN
         if(!upiPinService.validatePin(walletUpiHandle, rawWalletPin)){
-            throw new IllegalArgumentException("Invalid UPI PIN");
+            throw new InvalidPinException("Invalid UPI PIN");
         }
 
         // 6. Check Balance
         if(senderWallet.getBalance().compareTo(amount) < 0){
-            throw new IllegalArgumentException("Insufficient bank balance");
+            throw new InsufficientFundsException("Insufficient bank balance");
         }
 
         // 7. Deduct from wallet
@@ -173,7 +176,7 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public List<Transaction> getTransactionsByWalletUpi(String walletUpiHandle) {
         Wallet wallet = walletRepository.findByUpiHandle(walletUpiHandle)
-                .orElseThrow(()->new RuntimeException("Wallet not found"));
+                .orElseThrow(()->new ResourceNotFoundException("Wallet not found: "+walletUpiHandle));
         
         return transactionRepository.findByFromWalletOrToWallet(wallet, wallet);
 

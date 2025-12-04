@@ -30,4 +30,14 @@ public class ApiResponse<T> {
                 .timestamp(Instant.now())
                 .build();
     }
+
+    // overload to include data (useful for validation errors)
+    public static <T> ApiResponse<T> error(String message, T data) {
+        return ApiResponse.<T>builder()
+                .status("error")
+                .message(message)
+                .data(data)
+                .timestamp(Instant.now())
+                .build();
+    }
 }

@@ -1,6 +1,5 @@
 package com.devh.payment_sim.exception;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,27 +23,45 @@ public class GlobalExceptionHandler {
                 errors.put(error.getField(), error.getDefaultMessage())
             );
         
-        ApiResponse<Map<String, String>> response = ApiResponse.
-                    <Map<String,String>>builder()
-                    .status("error")
-                    .message("Validation failed")
-                    .data(errors)
-                    .timestamp(Instant.now())
-                    .build();
+        ApiResponse<Map<String, String>> response = ApiResponse.error("Validation Failed!", errors);
                     
         return ResponseEntity.badRequest().body(response);
     }
 
-    // generic exceptions
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<String>> handleNotFound(ResourceNotFoundException ex){
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiResponse<String>> handleConflict(ConflictException ex){
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidPinException.class)
+    public ResponseEntity<ApiResponse<String>> handleInvalidPin(InvalidPinException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ResponseEntity<ApiResponse<String>> handleInsufficient(InsufficientFundsException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<String>> handleBadRequest(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler(PinNotSetException.class)
+    public ResponseEntity<ApiResponse<String>> handlePinNotSet(PinNotSetException ex){
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    // fallback
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<String>> handleGenericExceptions(Exception ex) {
-        ApiResponse<String> response = ApiResponse.<String>builder()
-            .status("error")
-            .message("Internal Server error")
-            .data(ex.getMessage())
-            .timestamp(Instant.now())
-            .build();
-
+        ApiResponse<String> response = ApiResponse.error("Internal Server Error", ex.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
     

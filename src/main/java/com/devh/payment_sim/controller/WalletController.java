@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.CreateWalletRequest;
 import com.devh.payment_sim.dto.WalletBankTransferRequest;
-import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.model.Transaction;
 import com.devh.payment_sim.model.Wallet;
 import com.devh.payment_sim.security.CustomUserDetails;
@@ -26,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 @RequiredArgsConstructor
 public class WalletController {
     private final WalletService walletService;
-    private final BankAccountService bankAccountService;
     private final TransactionService transactionService;
     
     @PostMapping("/create")
@@ -46,11 +44,10 @@ public class WalletController {
         @Valid @RequestBody WalletBankTransferRequest request,
         @AuthenticationPrincipal CustomUserDetails user
     ) {
-        BankAccount bankAccount = bankAccountService.getBankAccountByAccountNumber(request.getBankAccountNumber());
         Transaction tx = transactionService.topUpFromBank(
                             user.getUserId(), 
                             request.getWalletUpiHandle(), 
-                            bankAccount.getId(), 
+                            request.getBankAccountNumber(), 
                             request.getTransferAmount(), 
                             request.getRawPin(),
                             request.getRemarks()
@@ -64,11 +61,10 @@ public class WalletController {
         @RequestBody WalletBankTransferRequest request,
         @AuthenticationPrincipal CustomUserDetails user
     ) {
-        BankAccount bankAccount = bankAccountService.getBankAccountByAccountNumber(request.getBankAccountNumber());
         Transaction tx = transactionService.withdrawFromWallet(
                             user.getUserId(), 
                             request.getWalletUpiHandle(), 
-                            bankAccount.getId(), 
+                            request.getBankAccountNumber(), 
                             request.getTransferAmount(), 
                             request.getRawPin(), 
                             request.getRemarks()

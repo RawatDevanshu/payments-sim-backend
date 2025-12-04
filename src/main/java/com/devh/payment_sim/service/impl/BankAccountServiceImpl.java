@@ -3,8 +3,10 @@ package com.devh.payment_sim.service.impl;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
+import com.devh.payment_sim.dto.OpenAccountRequest;
 import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.repository.BankAccountRepository;
@@ -20,17 +22,17 @@ public class BankAccountServiceImpl implements BankAccountService {
     private final UserRepository userRepository;
 
     @Override
-    public BankAccount linkAccount(Long userId, String accountNumber, String bankName, String ifscCode) {
-       User user = userRepository.findById(userId)
+    public BankAccount createAccount(OpenAccountRequest request) {
+       String hashedPin = BCrypt.hashpw(request.getBankPin(), BCrypt.gensalt());
+
+       User user = userRepository.findById(request.getUserId())
             .orElseThrow(()-> new RuntimeException("User not found"));
 
         BankAccount account = BankAccount.builder()
                             .user(user)
-                            .accountNumber(accountNumber)
-                            .bankName(bankName)
-                            .ifscCode(ifscCode)
+                            .accountNumber(request.getAccountNumber())
                             .balance(BigDecimal.valueOf(10000))
-                            .isLinked(true)
+                            .bankPinHash(hashedPin)
                             .build();
 
         return bankAccountRepository.save(account);
@@ -44,5 +46,11 @@ public class BankAccountServiceImpl implements BankAccountService {
         return bankAccountRepository.findByUser(user);
     }
     
-    
+    @Override
+    public BankAccount getBankAccountByAccountNumber(String accountNumber) {
+               
+        return bankAccountRepository.findByAccountNumber(accountNumber)
+                        .orElseThrow(() -> new RuntimeException("Bank Account not found"));
+                        
+    }
 }

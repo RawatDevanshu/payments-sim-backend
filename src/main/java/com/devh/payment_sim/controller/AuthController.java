@@ -4,7 +4,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,7 +15,7 @@ import com.devh.payment_sim.dto.AuthRequest;
 import com.devh.payment_sim.dto.AuthResponse;
 import com.devh.payment_sim.dto.UserRequest;
 import com.devh.payment_sim.model.User;
-import com.devh.payment_sim.service.CustomUserDetailsService;
+import com.devh.payment_sim.security.CustomUserDetailsService;
 import com.devh.payment_sim.service.UserService;
 
 import jakarta.validation.Valid;

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.devh.payment_sim.core.ApiResponse;
-import com.devh.payment_sim.dto.LinkAccountRequest;
+import com.devh.payment_sim.dto.OpenAccountRequest;
 import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.service.BankAccountService;
 
@@ -23,16 +23,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BankAccountController {
     private final BankAccountService bankAccountService;
-    
-    @PostMapping
-    public ResponseEntity<ApiResponse<BankAccount>> linkBankAccount(@Valid @RequestBody LinkAccountRequest request){
-       BankAccount account = bankAccountService.linkAccount(
-                request.getUserId(), 
-                request.getAccountNumber(), 
-                request.getBankName(), 
-                request.getIfscCode());
 
-       return ResponseEntity.ok(ApiResponse.success("Bank Account linked successfully", account));
+    @PostMapping("/open")
+    public ResponseEntity<ApiResponse<BankAccount>> openBankAccount(@Valid @RequestBody OpenAccountRequest request) {
+        BankAccount account = bankAccountService.createAccount(request);
+       return ResponseEntity.ok(ApiResponse.success("Bank Account created successfully", account));
     }
 
     @GetMapping("/{userId}")

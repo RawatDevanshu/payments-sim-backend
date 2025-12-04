@@ -6,6 +6,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.devh.payment_sim.dto.UserRequest;
+import com.devh.payment_sim.model.Role;
 import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.repository.UserRepository;
 import com.devh.payment_sim.service.UserService;
@@ -24,6 +25,7 @@ public class UserServiceImpl implements UserService {
 
         User user = User.builder()
                 .name(request.getName())
+                .role(Role.ROLE_USER)
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .passwordHash(hashedPassword)

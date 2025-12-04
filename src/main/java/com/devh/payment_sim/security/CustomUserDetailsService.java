@@ -1,4 +1,4 @@
-package com.devh.payment_sim.service;
+package com.devh.payment_sim.security;
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -21,10 +21,11 @@ public class CustomUserDetailsService implements UserDetailsService{
         User user = userRepository.findByEmail(email)
             .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        return org.springframework.security.core.userdetails.User
-                .withUsername(user.getEmail())
+        return CustomUserDetails.builder()
+                .userId(user.getId())
+                .username(user.getEmail())
                 .password(user.getPasswordHash())
-                .authorities("ROLE_USER")
+                .role(user.getRole())
                 .build();
     }
 }

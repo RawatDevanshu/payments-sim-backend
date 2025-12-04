@@ -20,8 +20,8 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<User>> getUser(@PathVariable Long id){
-        return userService.getUserById(id)
-                .map(user -> ResponseEntity.ok(ApiResponse.success("User fetched successfully", user)))
-                .orElse(ResponseEntity.status(404).body(ApiResponse.error("User not found")));
+        User fetchedUser = userService.getUserById(id);
+
+        return ResponseEntity.ok(ApiResponse.success("User fetched successfully", fetchedUser));
     }
 }

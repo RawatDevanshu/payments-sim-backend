@@ -7,6 +7,7 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
 import com.devh.payment_sim.dto.OpenAccountRequest;
+import com.devh.payment_sim.exception.ResourceNotFoundException;
 import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.repository.BankAccountRepository;
@@ -26,7 +27,7 @@ public class BankAccountServiceImpl implements BankAccountService {
        String hashedPin = BCrypt.hashpw(request.getBankPin(), BCrypt.gensalt());
 
        User user = userRepository.findById(request.getUserId())
-            .orElseThrow(()-> new RuntimeException("User not found"));
+            .orElseThrow(()-> new ResourceNotFoundException("User not found: "+ request.getUserId()));
 
         BankAccount account = BankAccount.builder()
                             .user(user)
@@ -41,7 +42,7 @@ public class BankAccountServiceImpl implements BankAccountService {
     @Override
     public List<BankAccount> getBankAccountsByUserId(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(()-> new RuntimeException("User not found"));
+                .orElseThrow(()-> new ResourceNotFoundException("User not found: "+userId));
         
         return bankAccountRepository.findByUser(user);
     }
@@ -50,7 +51,7 @@ public class BankAccountServiceImpl implements BankAccountService {
     public BankAccount getBankAccountByAccountNumber(String accountNumber) {
                
         return bankAccountRepository.findByAccountNumber(accountNumber)
-                        .orElseThrow(() -> new RuntimeException("Bank Account not found"));
+                        .orElseThrow(() -> new ResourceNotFoundException("Bank Account not found: "+accountNumber));
                         
     }
 }

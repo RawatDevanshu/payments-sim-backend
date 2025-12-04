@@ -3,6 +3,8 @@ package com.devh.payment_sim.service.impl;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
+import com.devh.payment_sim.exception.PinNotSetException;
+import com.devh.payment_sim.exception.ResourceNotFoundException;
 import com.devh.payment_sim.model.UPIPin;
 import com.devh.payment_sim.model.Wallet;
 import com.devh.payment_sim.repository.UPIPinRepository;
@@ -20,7 +22,7 @@ public class UPIPinServiceImpl implements UPIPinService {
     @Override
     public void setPin(String walletUpiHandle, String rawPin) {
         Wallet wallet = walletRepository.findByUpiHandle(walletUpiHandle)
-                .orElseThrow(()-> new RuntimeException("Wallet not found"));
+                .orElseThrow(()-> new ResourceNotFoundException("Wallet not found: " + walletUpiHandle));
         
         String hashedPin = BCrypt.hashpw(rawPin, BCrypt.gensalt());
 
@@ -35,7 +37,7 @@ public class UPIPinServiceImpl implements UPIPinService {
     @Override
     public boolean validatePin(String walletUpiHandle, String rawPin) {
         UPIPin upiPin = upiPinRepository.findByWallet_UpiHandle(walletUpiHandle)
-                            .orElseThrow(()-> new RuntimeException("UPI Pin not set"));
+                            .orElseThrow(()-> new PinNotSetException("UPI Pin not set"));
         
         return BCrypt.checkpw(rawPin, upiPin.getPinHash());
     }

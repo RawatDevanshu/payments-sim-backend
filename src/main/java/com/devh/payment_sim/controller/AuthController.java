@@ -14,6 +14,8 @@ import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.AuthRequest;
 import com.devh.payment_sim.dto.AuthResponse;
 import com.devh.payment_sim.dto.UserRequest;
+import com.devh.payment_sim.dto.response.EntityToResponseMapper;
+import com.devh.payment_sim.dto.response.UserResponse;
 import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.security.CustomUserDetailsService;
 import com.devh.payment_sim.service.UserService;
@@ -32,9 +34,11 @@ public class AuthController {
     private final UserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<User>> registerUser(@Valid @RequestBody UserRequest request){
+    public ResponseEntity<ApiResponse<UserResponse>> registerUser(@Valid @RequestBody UserRequest request){
         User savedUser = userService.registerUser(request);
-        return ResponseEntity.ok(ApiResponse.success("User registered successfully", savedUser));
+
+        UserResponse response = EntityToResponseMapper.toUserResponse(savedUser);
+        return ResponseEntity.ok(ApiResponse.success("User registered successfully", response));
     }
 
     @PostMapping("/login")

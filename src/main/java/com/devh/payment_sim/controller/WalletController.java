@@ -7,10 +7,12 @@ import org.springframework.web.bind.annotation.*;
 import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.CreateWalletRequest;
 import com.devh.payment_sim.dto.WalletBankTransferRequest;
+import com.devh.payment_sim.dto.response.EntityToResponseMapper;
+import com.devh.payment_sim.dto.response.TransactionResponse;
+import com.devh.payment_sim.dto.response.WalletResponse;
 import com.devh.payment_sim.model.Transaction;
 import com.devh.payment_sim.model.Wallet;
 import com.devh.payment_sim.security.CustomUserDetails;
-import com.devh.payment_sim.service.BankAccountService;
 import com.devh.payment_sim.service.TransactionService;
 import com.devh.payment_sim.service.WalletService;
 
@@ -28,19 +30,23 @@ public class WalletController {
     private final TransactionService transactionService;
     
     @PostMapping("/create")
-    public ResponseEntity<ApiResponse<Wallet>> createWallet(@Valid @RequestBody CreateWalletRequest request){
+    public ResponseEntity<ApiResponse<WalletResponse>> createWallet(@Valid @RequestBody CreateWalletRequest request){
         Wallet wallet = walletService.createWallet(request.getUserId(), request.getUpiHandle());
-        return ResponseEntity.ok(ApiResponse.success("Wallet created successfully", wallet));
+
+        WalletResponse response = EntityToResponseMapper.toWalletResponse(wallet);
+        return ResponseEntity.ok(ApiResponse.success("Wallet created successfully", response));
     }
 
     @GetMapping("/{upiHandle}")
-    public ResponseEntity<ApiResponse<Wallet>> getWalletByUpi(@PathVariable String upiHandle) {
+    public ResponseEntity<ApiResponse<WalletResponse>> getWalletByUpi(@PathVariable String upiHandle) {
         Wallet wallet = walletService.getWalletByUpi(upiHandle);
-        return ResponseEntity.ok(ApiResponse.success("Wallet fetched by upi handle successfully", wallet));
+
+        WalletResponse response = EntityToResponseMapper.toWalletResponse(wallet);
+        return ResponseEntity.ok(ApiResponse.success("Wallet fetched by upi handle successfully", response));
     }
 
     @PostMapping("/topup")
-    public ResponseEntity<ApiResponse<Transaction>> topUpWallet(
+    public ResponseEntity<ApiResponse<TransactionResponse>> topUpWallet(
         @Valid @RequestBody WalletBankTransferRequest request,
         @AuthenticationPrincipal CustomUserDetails user
     ) {
@@ -52,12 +58,14 @@ public class WalletController {
                             request.getRawPin(),
                             request.getRemarks()
                         );
+        
+        TransactionResponse response = EntityToResponseMapper.toTransactionResponse(tx);
 
-        return ResponseEntity.ok(ApiResponse.success("Wallet top up successfull", tx));
+        return ResponseEntity.ok(ApiResponse.success("Wallet top up successfull", response));
     }
 
     @PostMapping("/withdraw")
-    public ResponseEntity<ApiResponse<Transaction>> withdrawFromWallet(
+    public ResponseEntity<ApiResponse<TransactionResponse>> withdrawFromWallet(
         @RequestBody WalletBankTransferRequest request,
         @AuthenticationPrincipal CustomUserDetails user
     ) {
@@ -69,8 +77,10 @@ public class WalletController {
                             request.getRawPin(), 
                             request.getRemarks()
                             );
+            
+        TransactionResponse response = EntityToResponseMapper.toTransactionResponse(tx);
         
-        return ResponseEntity.ok(ApiResponse.success("Money withdrawn from wallet successfully", tx));
+        return ResponseEntity.ok(ApiResponse.success("Money withdrawn from wallet successfully", response));
     }
     
 }

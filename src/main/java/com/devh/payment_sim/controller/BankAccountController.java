@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.OpenAccountRequest;
+import com.devh.payment_sim.dto.response.BankAccountResponse;
+import com.devh.payment_sim.dto.response.EntityToResponseMapper;
 import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.service.BankAccountService;
 
@@ -25,14 +27,18 @@ public class BankAccountController {
     private final BankAccountService bankAccountService;
 
     @PostMapping("/open")
-    public ResponseEntity<ApiResponse<BankAccount>> openBankAccount(@Valid @RequestBody OpenAccountRequest request) {
+    public ResponseEntity<ApiResponse<BankAccountResponse>> openBankAccount(@Valid @RequestBody OpenAccountRequest request) {
         BankAccount account = bankAccountService.createAccount(request);
-       return ResponseEntity.ok(ApiResponse.success("Bank Account created successfully", account));
+
+        BankAccountResponse response = EntityToResponseMapper.toBankAccountResponse(account);
+       return ResponseEntity.ok(ApiResponse.success("Bank Account created successfully", response));
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<ApiResponse<List<BankAccount>>> listBankAccounts(@PathVariable Long userId){
+    public ResponseEntity<ApiResponse<List<BankAccountResponse>>> listBankAccounts(@PathVariable Long userId){
         List<BankAccount> bankAccounts = bankAccountService.getBankAccountsByUserId(userId);
-        return ResponseEntity.ok(ApiResponse.success("List of bank accounts fetched successfully by userId", bankAccounts));
+
+        List<BankAccountResponse> response = bankAccounts.stream().map(EntityToResponseMapper::toBankAccountResponse).toList();
+        return ResponseEntity.ok(ApiResponse.success("List of bank accounts fetched successfully by userId", response));
     }
 }

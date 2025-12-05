@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.devh.payment_sim.core.ApiResponse;
+import com.devh.payment_sim.dto.response.EntityToResponseMapper;
+import com.devh.payment_sim.dto.response.UserResponse;
 import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.service.UserService;
 
@@ -19,9 +21,10 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> getUser(@PathVariable Long id){
+    public ResponseEntity<ApiResponse<UserResponse>> getUser(@PathVariable Long id){
         User fetchedUser = userService.getUserById(id);
 
-        return ResponseEntity.ok(ApiResponse.success("User fetched successfully", fetchedUser));
+        UserResponse response = EntityToResponseMapper.toUserResponse(fetchedUser);
+        return ResponseEntity.ok(ApiResponse.success("User fetched successfully", response));
     }
 }

@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.devh.payment_sim.core.ApiResponse;
 import com.devh.payment_sim.dto.SendMoneyRequest;
+import com.devh.payment_sim.dto.response.EntityToResponseMapper;
+import com.devh.payment_sim.dto.response.TransactionResponse;
 import com.devh.payment_sim.model.Transaction;
 import com.devh.payment_sim.service.TransactionService;
 
@@ -25,21 +27,25 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<Transaction>> sendMoney(@Valid @RequestBody SendMoneyRequest request){
+    public ResponseEntity<ApiResponse<TransactionResponse>> sendMoney(@Valid @RequestBody SendMoneyRequest request){
         Transaction transaction = transactionService.sendMoney(
                         request.getFromUpiHandle(), 
                         request.getToUpiHandle(), 
                         request.getTransferAmount(), 
                         request.getUpiPin(),
                         request.getRemarks());
+        
+        TransactionResponse response = EntityToResponseMapper.toTransactionResponse(transaction);
 
-        return ResponseEntity.ok(ApiResponse.success("Money from wallet sent successfully", transaction));
+        return ResponseEntity.ok(ApiResponse.success("Money from wallet sent successfully", response));
     }
 
     @GetMapping("/wallet/{walletUpiHandle}")
-    public ResponseEntity<ApiResponse<List<Transaction>>> getAllTransactionsForWallet(@PathVariable String walletUpiHandle){
+    public ResponseEntity<ApiResponse<List<TransactionResponse>>> getAllTransactionsForWallet(@PathVariable String walletUpiHandle){
         List<Transaction> transactions = transactionService.getTransactionsByWalletUpi(walletUpiHandle);
 
-        return ResponseEntity.ok(ApiResponse.success("All transactions retieved for given wallet handle", transactions));
+        List<TransactionResponse> response = transactions.stream().map(EntityToResponseMapper::toTransactionResponse).toList();
+
+        return ResponseEntity.ok(ApiResponse.success("All transactions retieved for given wallet handle", response));
     }
 }

@@ -1,6 +1,7 @@
 package com.devh.payment_sim.service.impl;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -34,6 +35,19 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public Transaction sendMoney(String fromUpi, String toUpi, BigDecimal amount, String upiPin, String remarks) {
+        
+        // 0. Transfer amount preprocessing
+        // Normalize & validate amount defensively
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("Amount must be positive");
+        }
+        // Ensure at most 2 decimals; reject >2
+        if (amount.scale() > 2) {
+            throw new IllegalArgumentException("Amount cannot have more than 2 decimal places");
+        }
+        // Normalize to 2-decimal fixed scale for arithmetic consistency
+        amount = amount.setScale(2, RoundingMode.HALF_UP);
+
         if (fromUpi.equals(toUpi)) {
             throw new IllegalArgumentException("Self-payments are not allowed");
         }
@@ -72,6 +86,19 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public Transaction topUpFromBank(Long userId, String walletUpiHandle, String bankAccountNumber, BigDecimal amount, String rawBankPin, String remarks){
+        
+        // 0. Transfer amount preprocessing
+        // Normalize & validate amount defensively
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("Amount must be positive");
+        }
+        // Ensure at most 2 decimals; reject >2
+        if (amount.scale() > 2) {
+            throw new IllegalArgumentException("Amount cannot have more than 2 decimal places");
+        }
+        // Normalize to 2-decimal fixed scale for arithmetic consistency
+        amount = amount.setScale(2, RoundingMode.HALF_UP);
+
         // 1. Fetch bank account
         BankAccount bankAccount = bankAccountRepository.findByAccountNumber(bankAccountNumber)
                                     .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + bankAccountNumber));
@@ -124,6 +151,19 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public Transaction withdrawFromWallet(Long userId, String walletUpiHandle, String bankAccountNumber, BigDecimal amount, String rawWalletPin, String remarks){
+        
+        // 0. Transfer amount preprocessing
+        // Normalize & validate amount defensively
+        if (amount == null || amount.signum() <= 0) {
+            throw new IllegalArgumentException("Amount must be positive");
+        }
+        // Ensure at most 2 decimals; reject >2
+        if (amount.scale() > 2) {
+            throw new IllegalArgumentException("Amount cannot have more than 2 decimal places");
+        }
+        // Normalize to 2-decimal fixed scale for arithmetic consistency
+        amount = amount.setScale(2, RoundingMode.HALF_UP);
+
         // 1. Fetch bank account
         BankAccount bankAccount = bankAccountRepository.findByAccountNumber(bankAccountNumber)
                                     .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + bankAccountNumber));

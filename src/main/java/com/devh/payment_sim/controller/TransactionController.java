@@ -26,7 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class TransactionController {
     private final TransactionService transactionService;
 
-    @PostMapping
+    @PostMapping("/transfer")
     public ResponseEntity<ApiResponse<TransactionResponse>> sendMoney(@Valid @RequestBody SendMoneyRequest request){
         Transaction transaction = transactionService.sendMoney(
                         request.getFromUpiHandle(), 

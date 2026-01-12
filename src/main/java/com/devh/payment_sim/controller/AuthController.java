@@ -1,5 +1,9 @@
 package com.devh.payment_sim.controller;
 
+import java.time.Duration;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -54,7 +58,19 @@ public class AuthController {
         
         final String jwt = jwtUtil.generateToken(userDetails);
 
-        return ResponseEntity.ok(new AuthResponse(jwt));
+        ResponseCookie cookie = ResponseCookie.from("accessToken", jwt)
+            .httpOnly(true)
+            .secure(false) // TODO: switch to true for prod
+            .sameSite("Lax")
+            .path("/")
+            .maxAge(Duration.ofMinutes(15))
+            .build();
+
+        
+
+        return ResponseEntity.ok()
+        .header(HttpHeaders.SET_COOKIE, cookie.toString())
+        .build();
     }
     
 }

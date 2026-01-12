@@ -22,6 +22,7 @@ public class SecurityConfig {
     
     private final JwtRequestFilter jwtRequestFilter;
     private final JwtAuthEntryPoint authEntryPoint;
+    private final JwtAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -33,7 +34,10 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
 
             // auth exception handling
-            .exceptionHandling(ex -> ex.authenticationEntryPoint(authEntryPoint))
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(authEntryPoint) // 401
+                .accessDeniedHandler(accessDeniedHandler) // 403
+            )
 
             // Authorize requests: open auth endpoints, protect others
             .authorizeHttpRequests(auth -> auth

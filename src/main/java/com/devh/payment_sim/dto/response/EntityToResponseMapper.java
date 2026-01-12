@@ -16,6 +16,7 @@ public final class EntityToResponseMapper {
             .id(u.getId())
             .name(u.getName())
             .email(u.getEmail())
+            .phone(u.getPhone())
             .role(u.getRole() != null ? u.getRole() : null)
             .createdAt(u.getCreatedAt())
             .build();

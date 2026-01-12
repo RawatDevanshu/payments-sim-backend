@@ -66,7 +66,7 @@ public class WalletController {
 
     @PostMapping("/withdraw")
     public ResponseEntity<ApiResponse<TransactionResponse>> withdrawFromWallet(
-        @RequestBody WalletBankTransferRequest request,
+        @Valid @RequestBody WalletBankTransferRequest request,
         @AuthenticationPrincipal CustomUserDetails user
     ) {
         Transaction tx = transactionService.withdrawFromWallet(

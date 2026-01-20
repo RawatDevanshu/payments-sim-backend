@@ -23,7 +23,9 @@ import com.devh.payment_sim.service.TransactionService;
 import com.devh.payment_sim.service.UPIPinService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
@@ -35,33 +37,46 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public Transaction sendMoney(String fromUpi, String toUpi, BigDecimal amount, String upiPin, String remarks) {
+        log.info("Initiating wallet transfer - From: {}, To: {}, Amount: {}", fromUpi, toUpi, amount);
         
         // 0. Transfer amount preprocessing
         // Normalize & validate amount defensively
         if (amount == null || amount.signum() <= 0) {
+            log.warn("Invalid amount for transfer - amount: {}", amount);
             throw new IllegalArgumentException("Amount must be positive");
         }
         // Ensure at most 2 decimals; reject >2
         if (amount.scale() > 2) {
+            log.warn("Invalid decimal scale for amount - amount: {}", amount);
             throw new IllegalArgumentException("Amount cannot have more than 2 decimal places");
         }
         // Normalize to 2-decimal fixed scale for arithmetic consistency
         amount = amount.setScale(2, RoundingMode.HALF_UP);
 
         if (fromUpi.equals(toUpi)) {
+            log.warn("Self-payment attempt - upiHandle: {}", fromUpi);
             throw new IllegalArgumentException("Self-payments are not allowed");
         }
 
         Wallet sender = walletRepository.findByUpiHandle(fromUpi)
-                .orElseThrow(()-> new ResourceNotFoundException("Sender's wallet not found: " + fromUpi));
+                .orElseThrow(()-> {
+                    log.warn("Sender wallet not found - upiHandle: {}", fromUpi);
+                    return new ResourceNotFoundException("Sender's wallet not found: " + fromUpi);
+                });
         Wallet reciever = walletRepository.findByUpiHandle(toUpi)
-                .orElseThrow(()-> new ResourceNotFoundException("Reciever's wallet not found: " + toUpi));
+                .orElseThrow(()-> {
+                    log.warn("Receiver wallet not found - upiHandle: {}", toUpi);
+                    return new ResourceNotFoundException("Reciever's wallet not found: " + toUpi);
+                });
 
         if(!upiPinService.validatePin(sender.getUpiHandle(), upiPin)){
+            log.warn("Invalid PIN for transfer - upiHandle: {}", fromUpi);
             throw new InvalidPinException("Invalid UPI PIN");
         }
 
         if(sender.getBalance().compareTo(amount) < 0){
+            log.warn("Insufficient balance for transfer - upiHandle: {}, Required: {}, Available: {}", 
+                     fromUpi, amount, sender.getBalance());
             throw new InsufficientFundsException("Insufficient Balance");
         }
 
@@ -80,20 +95,26 @@ public class TransactionServiceImpl implements TransactionService {
                         .remarks(remarks)
                         .build();
         
-        return transactionRepository.save(transaction);
+        Transaction savedTx = transactionRepository.save(transaction);
+        log.info("Wallet transfer completed - TxnId: {}, Amount: {}", savedTx.getId(), amount);
+        return savedTx;
     }
 
     @Override
     @Transactional
     public Transaction topUpFromBank(Long userId, String walletUpiHandle, String bankAccountNumber, BigDecimal amount, String rawBankPin, String remarks){
+        log.info("Initiating bank top-up - UserId: {}, Wallet: {}, BankAccount: {}, Amount: {}", 
+                 userId, walletUpiHandle, bankAccountNumber, amount);
         
         // 0. Transfer amount preprocessing
         // Normalize & validate amount defensively
         if (amount == null || amount.signum() <= 0) {
+            log.warn("Invalid amount for top-up - amount: {}", amount);
             throw new IllegalArgumentException("Amount must be positive");
         }
         // Ensure at most 2 decimals; reject >2
         if (amount.scale() > 2) {
+            log.warn("Invalid decimal scale for amount - amount: {}", amount);
             throw new IllegalArgumentException("Amount cannot have more than 2 decimal places");
         }
         // Normalize to 2-decimal fixed scale for arithmetic consistency
@@ -101,29 +122,40 @@ public class TransactionServiceImpl implements TransactionService {
 
         // 1. Fetch bank account
         BankAccount bankAccount = bankAccountRepository.findByAccountNumber(bankAccountNumber)
-                                    .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + bankAccountNumber));
+                                    .orElseThrow(() -> {
+                                        log.warn("Bank account not found - accountNumber: {}", bankAccountNumber);
+                                        return new ResourceNotFoundException("Bank account not found: " + bankAccountNumber);
+                                    });
     
         // 2. Verify ownership of bank account
         if(!bankAccount.getUser().getId().equals(userId)){
+            log.warn("Bank account ownership mismatch - accountNumber: {}, userId: {}", bankAccountNumber, userId);
             throw new IllegalArgumentException("Bank account does not belong to user");
         }
 
         // 3. Fetch wallet
         Wallet recieverWallet = walletRepository.findByUpiHandle(walletUpiHandle)
-                .orElseThrow(()-> new ResourceNotFoundException("Reciever's wallet not found: " + walletUpiHandle));
+                .orElseThrow(()-> {
+                    log.warn("Receiver wallet not found - upiHandle: {}", walletUpiHandle);
+                    return new ResourceNotFoundException("Reciever's wallet not found: " + walletUpiHandle);
+                });
         
         // 4. Verify ownership of wallet
         if(!recieverWallet.getUser().getId().equals(userId)){
+            log.warn("Wallet ownership mismatch - upiHandle: {}, userId: {}", walletUpiHandle, userId);
             throw new IllegalArgumentException("Wallet does not belong to user");
         }
 
         // 5. Verify PIN
         if(!BCrypt.checkpw(rawBankPin, bankAccount.getBankPinHash())){
+            log.warn("Invalid bank PIN for top-up - accountNumber: {}", bankAccountNumber);
             throw new InvalidPinException("Invalid UPI PIN");
         }
 
         // 6. Check Balance
         if(bankAccount.getBalance().compareTo(amount) < 0){
+            log.warn("Insufficient bank balance for top-up - accountNumber: {}, Required: {}, Available: {}", 
+                     bankAccountNumber, amount, bankAccount.getBalance());
             throw new InsufficientFundsException("Insufficient bank balance");
         }
 
@@ -145,20 +177,26 @@ public class TransactionServiceImpl implements TransactionService {
                     .remarks(remarks)
                     .build();
         
-        return transactionRepository.save(tx);
+        Transaction savedTx = transactionRepository.save(tx);
+        log.info("Bank top-up completed - TxnId: {}, Amount: {}", savedTx.getId(), amount);
+        return savedTx;
     }
 
     @Override
     @Transactional
     public Transaction withdrawFromWallet(Long userId, String walletUpiHandle, String bankAccountNumber, BigDecimal amount, String rawWalletPin, String remarks){
+        log.info("Initiating wallet withdrawal - UserId: {}, Wallet: {}, BankAccount: {}, Amount: {}", 
+                 userId, walletUpiHandle, bankAccountNumber, amount);
         
         // 0. Transfer amount preprocessing
         // Normalize & validate amount defensively
         if (amount == null || amount.signum() <= 0) {
+            log.warn("Invalid amount for withdrawal - amount: {}", amount);
             throw new IllegalArgumentException("Amount must be positive");
         }
         // Ensure at most 2 decimals; reject >2
         if (amount.scale() > 2) {
+            log.warn("Invalid decimal scale for amount - amount: {}", amount);
             throw new IllegalArgumentException("Amount cannot have more than 2 decimal places");
         }
         // Normalize to 2-decimal fixed scale for arithmetic consistency
@@ -166,29 +204,40 @@ public class TransactionServiceImpl implements TransactionService {
 
         // 1. Fetch bank account
         BankAccount bankAccount = bankAccountRepository.findByAccountNumber(bankAccountNumber)
-                                    .orElseThrow(() -> new ResourceNotFoundException("Bank account not found: " + bankAccountNumber));
+                                    .orElseThrow(() -> {
+                                        log.warn("Bank account not found - accountNumber: {}", bankAccountNumber);
+                                        return new ResourceNotFoundException("Bank account not found: " + bankAccountNumber);
+                                    });
     
         // 2. Verify ownership of bank account
         if(!bankAccount.getUser().getId().equals(userId)){
+            log.warn("Bank account ownership mismatch - accountNumber: {}, userId: {}", bankAccountNumber, userId);
             throw new IllegalArgumentException("Bank account does not belong to user");
         }
 
         // 3. Fetch wallet
         Wallet senderWallet = walletRepository.findByUpiHandle(walletUpiHandle)
-                .orElseThrow(()-> new ResourceNotFoundException("Sender's wallet not found: " + walletUpiHandle));
+                .orElseThrow(()-> {
+                    log.warn("Sender wallet not found - upiHandle: {}", walletUpiHandle);
+                    return new ResourceNotFoundException("Sender's wallet not found: " + walletUpiHandle);
+                });
         
         // 4. Verify ownership of wallet
         if(!senderWallet.getUser().getId().equals(userId)){
+            log.warn("Wallet ownership mismatch - upiHandle: {}, userId: {}", walletUpiHandle, userId);
             throw new IllegalArgumentException("Wallet does not belong to user");
         }
 
         // 5. Verify PIN
         if(!upiPinService.validatePin(walletUpiHandle, rawWalletPin)){
+            log.warn("Invalid PIN for withdrawal - upiHandle: {}", walletUpiHandle);
             throw new InvalidPinException("Invalid UPI PIN");
         }
 
         // 6. Check Balance
         if(senderWallet.getBalance().compareTo(amount) < 0){
+            log.warn("Insufficient wallet balance for withdrawal - upiHandle: {}, Required: {}, Available: {}", 
+                     walletUpiHandle, amount, senderWallet.getBalance());
             throw new InsufficientFundsException("Insufficient bank balance");
         }
 
@@ -210,7 +259,9 @@ public class TransactionServiceImpl implements TransactionService {
                     .remarks(remarks)
                     .build();
         
-        return transactionRepository.save(tx);
+        Transaction savedTx = transactionRepository.save(tx);
+        log.info("Wallet withdrawal completed - TxnId: {}, Amount: {}", savedTx.getId(), amount);
+        return savedTx;
     }
 
     @Override

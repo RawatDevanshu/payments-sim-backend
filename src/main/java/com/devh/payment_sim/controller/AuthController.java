@@ -7,6 +7,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,7 +27,9 @@ import com.devh.payment_sim.service.UserService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -39,7 +42,10 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserResponse>> registerUser(@Valid @RequestBody UserRequest request){
+        
+        log.info("===USER REGISTRATION INITIATED=== Email: {}", request.getEmail());
         User savedUser = userService.registerUser(request);
+        log.info("===USER REGISTRATION COMPLETED=== UserId: {}, Email: {}", savedUser.getId(), savedUser.getEmail());
 
         UserResponse response = EntityToResponseMapper.toUserResponse(savedUser);
         return ResponseEntity.ok(ApiResponse.success("User registered successfully", response));
@@ -47,11 +53,21 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest authRequest) {
+        log.info("===USER LOGIN INITIATED=== Email: {}", authRequest.getEmail());
+        
+        // Check if user exists
+        if (!userService.userExists(authRequest.getEmail())) {
+            throw new AuthenticationException("User not found with this email") {};
+        }
+        log.debug("User found - Email: {}", authRequest.getEmail());
+        
+    
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(
                 authRequest.getEmail(), authRequest.getPassword()
         )
         );
+        log.info("USER AUTHENTICATED - Email: {}", authRequest.getEmail());
 
         final UserDetails userDetails = 
                 userDetailsService.loadUserByUsername(authRequest.getEmail());
@@ -60,12 +76,12 @@ public class AuthController {
 
         ResponseCookie cookie = ResponseCookie.from("accessToken", jwt)
             .httpOnly(true)
-            .secure(false) // TODO: switch to true for prod
+            .secure(true)
             .sameSite("Lax")
             .path("/")
             .maxAge(Duration.ofMinutes(15))
             .build();
-
+        log.info("===USER LOGIN COMPLETED=== Email: {}", authRequest.getEmail());
         
 
         return ResponseEntity.ok()

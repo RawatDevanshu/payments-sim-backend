@@ -19,7 +19,9 @@ import com.devh.payment_sim.service.BankAccountService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/bank-accounts")
 @RequiredArgsConstructor
@@ -28,7 +30,9 @@ public class BankAccountController {
 
     @PostMapping("/open")
     public ResponseEntity<ApiResponse<BankAccountResponse>> openBankAccount(@Valid @RequestBody OpenAccountRequest request) {
+        log.info("===OPEN BANK ACCOUNT INITIATED=== UserId: {}", request.getUserId());
         BankAccount account = bankAccountService.createAccount(request);
+        log.info("===OPEN BANK ACCOUNT COMPLETED=== AccountID: {}", account.getId());
 
         BankAccountResponse response = EntityToResponseMapper.toBankAccountResponse(account);
        return ResponseEntity.ok(ApiResponse.success("Bank Account created successfully", response));
@@ -36,7 +40,9 @@ public class BankAccountController {
 
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<List<BankAccountResponse>>> listBankAccounts(@PathVariable Long userId){
+        log.info("===FETCH USER BANK ACCOUNT(S) INITIATED=== UserId: {}", userId);
         List<BankAccount> bankAccounts = bankAccountService.getBankAccountsByUserId(userId);
+        log.info("===FETCH USER BANK ACCOUNT(S) COMPLETED=== Count: {}", bankAccounts.size());
 
         List<BankAccountResponse> response = bankAccounts.stream().map(EntityToResponseMapper::toBankAccountResponse).toList();
         return ResponseEntity.ok(ApiResponse.success("List of bank accounts fetched successfully by userId", response));

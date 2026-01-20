@@ -15,7 +15,9 @@ import com.devh.payment_sim.repository.UserRepository;
 import com.devh.payment_sim.service.BankAccountService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BankAccountServiceImpl implements BankAccountService {
@@ -27,7 +29,10 @@ public class BankAccountServiceImpl implements BankAccountService {
        String hashedPin = BCrypt.hashpw(request.getBankPin(), BCrypt.gensalt());
 
        User user = userRepository.findById(request.getUserId())
-            .orElseThrow(()-> new ResourceNotFoundException("User not found: "+ request.getUserId()));
+            .orElseThrow(()-> {
+                log.warn("User not found for bank account creation - userId: {}", request.getUserId());
+                return new ResourceNotFoundException("User not found: "+ request.getUserId());
+            });
 
         BankAccount account = BankAccount.builder()
                             .user(user)
@@ -36,22 +41,31 @@ public class BankAccountServiceImpl implements BankAccountService {
                             .bankPinHash(hashedPin)
                             .build();
 
-        return bankAccountRepository.save(account);
+        BankAccount savedAccount = bankAccountRepository.save(account);
+        log.info("Bank account created - AccountId: {}, UserId: {}, AccountNumber: {}", 
+                 savedAccount.getId(), request.getUserId(), request.getAccountNumber());
+        return savedAccount;
     }
 
     @Override
     public List<BankAccount> getBankAccountsByUserId(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(()-> new ResourceNotFoundException("User not found: "+userId));
+                .orElseThrow(()-> {
+                    log.warn("User not found while fetching accounts - userId: {}", userId);
+                    return new ResourceNotFoundException("User not found: "+userId);
+                });
         
-        return bankAccountRepository.findByUser(user);
+        List<BankAccount> accounts = bankAccountRepository.findByUser(user);
+        log.debug("Retrieved {} bank accounts for userId: {}", accounts.size(), userId);
+        return accounts;
     }
     
     @Override
     public BankAccount getBankAccountByAccountNumber(String accountNumber) {
-               
         return bankAccountRepository.findByAccountNumber(accountNumber)
-                        .orElseThrow(() -> new ResourceNotFoundException("Bank Account not found: "+accountNumber));
-                        
+                        .orElseThrow(() -> {
+                            log.warn("Bank account not found - accountNumber: {}", accountNumber);
+                            return new ResourceNotFoundException("Bank Account not found: "+accountNumber);
+                        });
     }
 }

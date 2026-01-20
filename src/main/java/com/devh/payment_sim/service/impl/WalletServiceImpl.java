@@ -13,7 +13,9 @@ import com.devh.payment_sim.repository.WalletRepository;
 import com.devh.payment_sim.service.WalletService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WalletServiceImpl implements WalletService {
@@ -23,9 +25,13 @@ public class WalletServiceImpl implements WalletService {
     @Override
     public Wallet createWallet(Long userId, String upiHandle) {
         User user = userRepository.findById(userId)
-                        .orElseThrow(()-> new ResourceNotFoundException("User not found: "+userId));
+                        .orElseThrow(()-> {
+                            log.warn("User not found for wallet creation - userId: {}", userId);
+                            return new ResourceNotFoundException("User not found: "+userId);
+                        });
 
         if(walletRepository.existsByUpiHandle(upiHandle)){
+            log.warn("UPI handle already in use - upiHandle: {}", upiHandle);
             throw new ConflictException("Upi handle already in use");
         }
 
@@ -36,13 +42,19 @@ public class WalletServiceImpl implements WalletService {
                 .isActive(true)
                 .build();
         
-        return walletRepository.save(wallet);
+        Wallet savedWallet = walletRepository.save(wallet);
+        log.info("Wallet created successfully - WalletId: {}, UPI: {}, UserId: {}", 
+                 savedWallet.getId(), upiHandle, userId);
+        return savedWallet;
     }
 
     @Override
     public Wallet getWalletByUpi(String upiHandle) {
         return walletRepository.findByUpiHandle(upiHandle)
-                .orElseThrow(()->new ResourceNotFoundException("Wallet not found: "+upiHandle));
+                .orElseThrow(()->  {
+                    log.warn("Wallet not found - upiHandle: {}", upiHandle);
+                    return new ResourceNotFoundException("Wallet not found: "+upiHandle);
+                });
     }
     
 }

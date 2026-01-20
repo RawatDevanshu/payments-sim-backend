@@ -91,9 +91,9 @@ class TransactionServiceTest {
 
        Transaction tx = transactionService.sendMoney("sender@upi", "receiver@upi", BigDecimal.valueOf(250), "1234", "payment");
 
-       assertEquals(BigDecimal.valueOf(750), senderWallet.getBalance());
+       assertEquals(BigDecimal.valueOf(750).setScale(2), senderWallet.getBalance());
        assertNotNull(tx);
-       assertEquals(BigDecimal.valueOf(250), tx.getAmount());
+       assertEquals(BigDecimal.valueOf(250).setScale(2), tx.getAmount());
        assertEquals(TransactionType.WALLET_TRANSFER, tx.getType());
 
        verify(walletRepository, times(2)).save(any(Wallet.class));
@@ -136,8 +136,8 @@ class TransactionServiceTest {
 
         Transaction tx = transactionService.topUpFromBank(1L, "receiver@upi", "1234567890", BigDecimal.valueOf(500), "1234", "topup");
 
-        assertEquals(BigDecimal.valueOf(1500), bankAccount.getBalance());
-        assertEquals(BigDecimal.valueOf(600), receiverWallet.getBalance());
+        assertEquals(BigDecimal.valueOf(1500).setScale(2), bankAccount.getBalance());
+        assertEquals(BigDecimal.valueOf(600).setScale(2), receiverWallet.getBalance());
 
         assertEquals(TransactionType.BANK_TOPUP, tx.getType());
     }
@@ -168,8 +168,8 @@ class TransactionServiceTest {
 
         Transaction tx = transactionService.withdrawFromWallet(1L, "sender@upi", "1234567890", BigDecimal.valueOf(500), "1234", "withdraw");
 
-        assertEquals(BigDecimal.valueOf(500), senderWallet.getBalance());
-        assertEquals(BigDecimal.valueOf(2500), bankAccount.getBalance());
+        assertEquals(BigDecimal.valueOf(500).setScale(2), senderWallet.getBalance());
+        assertEquals(BigDecimal.valueOf(2500).setScale(2), bankAccount.getBalance());
         assertEquals(TransactionType.WALLET_WITHDRAW, tx.getType());
     }
 

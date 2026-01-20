@@ -13,7 +13,9 @@ import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.service.UserService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -22,8 +24,10 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> getUser(@PathVariable Long id){
+        log.info("===FETCH USER INITIATED=== UserId: {}", id);
         User fetchedUser = userService.getUserById(id);
-
+        log.info("===FETCH USER COMPLETED=== EmailId: {}", fetchedUser.getEmail());
+        
         UserResponse response = EntityToResponseMapper.toUserResponse(fetchedUser);
         return ResponseEntity.ok(ApiResponse.success("User fetched successfully", response));
     }

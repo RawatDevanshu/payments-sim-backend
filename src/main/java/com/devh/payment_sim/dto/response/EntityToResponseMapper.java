@@ -64,7 +64,7 @@ public final class EntityToResponseMapper {
         return BankAccountResponse.builder()
                 .id(b.getId())
                 .userId(b.getUser() != null ? b.getUser().getId() : null)
-                .accountNumber(b.getAccountNumber())
+                .accountNumber(maskAccount(b.getAccountNumber()))
                 .balance(b.getBalance())
                 .createdAt(b.getCreatedAt())
                 .build();

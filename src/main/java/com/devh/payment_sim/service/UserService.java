@@ -7,4 +7,5 @@ public interface UserService {
     User registerUser(UserRequest user);
     User getUserById(Long id);
     User getUserByEmail(String email);
+    boolean userExists(String email);
 }

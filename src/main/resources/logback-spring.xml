@@ -1,0 +1,20 @@
+
+<configuration>
+  <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="payment-sim"/>
+  <property name="LOG_PATTERN" value="%-5level %d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] - %msg --- %logger{36}%n"/>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>${LOG_PATTERN}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Default levels -->
+  <logger name="org.springframework" level="INFO"/>
+  <logger name="org.hibernate.SQL" level="WARN"/>
+  <logger name="org.hibernate.type.descriptor.sql" level="WARN"/>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>

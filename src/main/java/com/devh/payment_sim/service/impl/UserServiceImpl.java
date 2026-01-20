@@ -11,7 +11,9 @@ import com.devh.payment_sim.repository.UserRepository;
 import com.devh.payment_sim.service.UserService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -30,19 +32,34 @@ public class UserServiceImpl implements UserService {
                 .passwordHash(hashedPassword)
                 .build();
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        log.info("User registered successfully - UserId: {}, Email: {}", savedUser.getId(), request.getEmail());
+        return savedUser;
     }
 
     @Override
     public User getUserById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
+                .orElseThrow(() -> {
+                    log.warn("User not found - userId: {}", id);
+                    return new ResourceNotFoundException("User not found: " + id);
+                });
     }
 
     @Override
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+                .orElseThrow(() -> {
+                    log.warn("User not found - email: {}", email);
+                    return new ResourceNotFoundException("User not found: " + email);
+                });
+    }
+
+    @Override
+    public boolean userExists(String email) {
+        boolean exists = userRepository.findByEmail(email).isPresent();
+        log.debug("User existence check - email: {}, exists: {}", email, exists);
+        return exists;
     }
     
 }

@@ -12,7 +12,9 @@ import com.devh.payment_sim.repository.WalletRepository;
 import com.devh.payment_sim.service.UPIPinService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UPIPinServiceImpl implements UPIPinService {
@@ -22,7 +24,10 @@ public class UPIPinServiceImpl implements UPIPinService {
     @Override
     public void setPin(String walletUpiHandle, String rawPin) {
         Wallet wallet = walletRepository.findByUpiHandle(walletUpiHandle)
-                .orElseThrow(()-> new ResourceNotFoundException("Wallet not found: " + walletUpiHandle));
+                .orElseThrow(()-> {
+                    log.warn("Wallet not found while setting PIN - upiHandle: {}", walletUpiHandle);
+                    return new ResourceNotFoundException("Wallet not found: " + walletUpiHandle);
+                });
         
         String hashedPin = BCrypt.hashpw(rawPin, BCrypt.gensalt());
 
@@ -32,14 +37,24 @@ public class UPIPinServiceImpl implements UPIPinService {
                 .build();
 
         upiPinRepository.save(upiPin);
+        log.info("UPI PIN set successfully - upiHandle: {}", walletUpiHandle);
     }
 
     @Override
     public boolean validatePin(String walletUpiHandle, String rawPin) {
         UPIPin upiPin = upiPinRepository.findByWallet_UpiHandle(walletUpiHandle)
-                            .orElseThrow(()-> new PinNotSetException("UPI Pin not set"));
+                            .orElseThrow(()-> {
+                                log.warn("PIN not set for wallet - upiHandle: {}", walletUpiHandle);
+                                return new PinNotSetException("UPI Pin not set");
+                            });
         
-        return BCrypt.checkpw(rawPin, upiPin.getPinHash());
+        boolean isValid = BCrypt.checkpw(rawPin, upiPin.getPinHash());
+        
+        if (!isValid) {
+            log.warn("Invalid PIN attempt - upiHandle: {}", walletUpiHandle);
+        }
+        
+        return isValid;
     }
     
 }

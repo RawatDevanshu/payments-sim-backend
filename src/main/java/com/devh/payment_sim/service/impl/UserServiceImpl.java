@@ -4,6 +4,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.devh.payment_sim.dto.UserRequest;
+import com.devh.payment_sim.exception.ConflictException;
 import com.devh.payment_sim.exception.ResourceNotFoundException;
 import com.devh.payment_sim.model.Role;
 import com.devh.payment_sim.model.User;
@@ -22,6 +23,24 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User registerUser(UserRequest request) {
+        boolean emailAlreadyExists = userRepository.existsByEmail(request.getEmail());
+        boolean phoneAlreadyExists = userRepository.existsByPhone(request.getPhone());
+
+        if(emailAlreadyExists && phoneAlreadyExists){
+        log.warn("Email and Phone Number already in use - Email: {}, Phone Number: {}", request.getEmail(), request.getPhone());
+        throw new ConflictException("User with this email and phone number already registered");
+       }
+
+       if(emailAlreadyExists){
+        log.warn("Email already in use - Email: {}", request.getEmail());
+        throw new ConflictException("User with this email already registered");
+       }
+
+       if(phoneAlreadyExists){
+        log.warn("Phone Number already in use - Phone Number: {}", request.getPhone());
+        throw new ConflictException("User with this phone number already registered");
+       }
+
         String hashedPassword = passwordEncoder.encode(request.getPassword());
 
         User user = User.builder()
@@ -57,7 +76,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public boolean userExists(String email) {
-        boolean exists = userRepository.findByEmail(email).isPresent();
+        boolean exists = userRepository.existsByEmail(email);
         log.debug("User existence check - email: {}, exists: {}", email, exists);
         return exists;
     }

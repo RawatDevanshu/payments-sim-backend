@@ -3,6 +3,7 @@ package com.devh.payment_sim.service.impl;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
+import com.devh.payment_sim.exception.ConflictException;
 import com.devh.payment_sim.exception.PinNotSetException;
 import com.devh.payment_sim.exception.ResourceNotFoundException;
 import com.devh.payment_sim.model.UPIPin;
@@ -23,6 +24,13 @@ public class UPIPinServiceImpl implements UPIPinService {
 
     @Override
     public void setPin(String walletUpiHandle, String rawPin) {
+        boolean pinAlreadySet = upiPinRepository.existsByWallet_UpiHandle(walletUpiHandle);
+
+        if(pinAlreadySet){
+            log.warn("Pin is already set for this upi handle - Wallet Upi Handle: {}", walletUpiHandle);
+            throw new ConflictException("Pin already set for this Upi Handle");
+        }
+
         Wallet wallet = walletRepository.findByUpiHandle(walletUpiHandle)
                 .orElseThrow(()-> {
                     log.warn("Wallet not found while setting PIN - upiHandle: {}", walletUpiHandle);

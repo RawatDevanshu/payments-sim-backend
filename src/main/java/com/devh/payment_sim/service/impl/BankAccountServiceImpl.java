@@ -7,6 +7,7 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
 import com.devh.payment_sim.dto.OpenAccountRequest;
+import com.devh.payment_sim.exception.ConflictException;
 import com.devh.payment_sim.exception.ResourceNotFoundException;
 import com.devh.payment_sim.model.BankAccount;
 import com.devh.payment_sim.model.User;
@@ -26,6 +27,14 @@ public class BankAccountServiceImpl implements BankAccountService {
 
     @Override
     public BankAccount createAccount(OpenAccountRequest request) {
+       
+       boolean alreadyExists = bankAccountRepository.existsByAccountNumber(request.getAccountNumber());
+
+       if(alreadyExists){
+        log.warn("Account Number already exists - Account Number: {}", request.getAccountNumber());
+        throw new ConflictException("Account Number already exists");
+       }
+        
        String hashedPin = BCrypt.hashpw(request.getBankPin(), BCrypt.gensalt());
 
        User user = userRepository.findById(request.getUserId())

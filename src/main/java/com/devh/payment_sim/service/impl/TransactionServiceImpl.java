@@ -21,6 +21,7 @@ import com.devh.payment_sim.repository.TransactionRepository;
 import com.devh.payment_sim.repository.WalletRepository;
 import com.devh.payment_sim.service.TransactionService;
 import com.devh.payment_sim.service.UPIPinService;
+import com.devh.payment_sim.statemachine.TransactionStateMachine;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,17 +30,22 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
+
+    private final TransactionStateMachine stateMachine;
+
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final BankAccountRepository bankAccountRepository;
     private final UPIPinService upiPinService;
 
-    @Override
-    @Transactional
-    public Transaction sendMoney(String fromUpi, String toUpi, BigDecimal amount, String upiPin, String remarks) {
-        log.info("Initiating wallet transfer - From: {}, To: {}, Amount: {}", fromUpi, toUpi, amount);
+    private Transaction advance(Transaction tx) {
+        tx.setStatus(stateMachine.next(tx));
+        return transactionRepository.save(tx);
+    }
+
+    private BigDecimal validateAmount(BigDecimal amount){
         
-        // 0. Transfer amount preprocessing
+        // Transfer amount preprocessing
         // Normalize & validate amount defensively
         if (amount == null || amount.signum() <= 0) {
             log.warn("Invalid amount for transfer - amount: {}", amount);
@@ -53,6 +59,16 @@ public class TransactionServiceImpl implements TransactionService {
         // Normalize to 2-decimal fixed scale for arithmetic consistency
         amount = amount.setScale(2, RoundingMode.HALF_UP);
 
+        return amount;
+    }
+
+    @Override
+    @Transactional
+    public Transaction sendMoney(String fromUpi, String toUpi, BigDecimal amount, String upiPin, String remarks) {
+        log.info("Initiating wallet transfer - From: {}, To: {}, Amount: {}", fromUpi, toUpi, amount);
+        
+       amount = validateAmount(amount);
+
         if (fromUpi.equals(toUpi)) {
             log.warn("Self-payment attempt - upiHandle: {}", fromUpi);
             throw new IllegalArgumentException("Self-payments are not allowed");
@@ -63,11 +79,25 @@ public class TransactionServiceImpl implements TransactionService {
                     log.warn("Sender wallet not found - upiHandle: {}", fromUpi);
                     return new ResourceNotFoundException("Sender's wallet not found: " + fromUpi);
                 });
-        Wallet reciever = walletRepository.findByUpiHandle(toUpi)
+        Wallet receiver = walletRepository.findByUpiHandle(toUpi)
                 .orElseThrow(()-> {
                     log.warn("Receiver wallet not found - upiHandle: {}", toUpi);
-                    return new ResourceNotFoundException("Reciever's wallet not found: " + toUpi);
+                    return new ResourceNotFoundException("Receiver's wallet not found: " + toUpi);
                 });
+
+        Transaction tx = Transaction.builder()
+                        .fromWallet(sender)
+                        .toWallet(receiver)
+                        .amount(amount)
+                        .type(TransactionType.WALLET_TRANSFER)
+                        .status(TransactionStatus.CREATED)
+                        .remarks(remarks)
+                        .build();
+
+        tx = transactionRepository.save(tx);
+
+        // VALIDATING
+        tx = advance(tx);
 
         if(!upiPinService.validatePin(sender.getUpiHandle(), upiPin)){
             log.warn("Invalid PIN for transfer - upiHandle: {}", fromUpi);
@@ -80,24 +110,27 @@ public class TransactionServiceImpl implements TransactionService {
             throw new InsufficientFundsException("Insufficient Balance");
         }
 
+        // PROCESSING
+        tx = advance(tx);
+
+        // DEBIT PENDING
+        tx = advance(tx);
+
         sender.setBalance(sender.getBalance().subtract(amount));
-        reciever.setBalance(reciever.getBalance().add(amount));
+
+        // CREDIT PENDING
+        tx = advance(tx);
+
+        receiver.setBalance(receiver.getBalance().add(amount));
 
         walletRepository.save(sender);
-        walletRepository.save(reciever);
+        walletRepository.save(receiver);
 
-        Transaction transaction = Transaction.builder()
-                        .fromWallet(sender)
-                        .toWallet(reciever)
-                        .amount(amount)
-                        .type(TransactionType.WALLET_TRANSFER)
-                        .status(TransactionStatus.SUCCESS)
-                        .remarks(remarks)
-                        .build();
-        
-        Transaction savedTx = transactionRepository.save(transaction);
-        log.info("Wallet transfer completed - TxnId: {}, Amount: {}", savedTx.getId(), amount);
-        return savedTx;
+        // COMPLETED
+        tx = advance(tx);
+
+        log.info("Wallet transfer completed - TxnId: {}, Amount: {}", tx.getId(), amount);
+        return tx;
     }
 
     @Override
@@ -106,19 +139,7 @@ public class TransactionServiceImpl implements TransactionService {
         log.info("Initiating bank top-up - UserId: {}, Wallet: {}, BankAccount: {}, Amount: {}", 
                  userId, walletUpiHandle, bankAccountNumber, amount);
         
-        // 0. Transfer amount preprocessing
-        // Normalize & validate amount defensively
-        if (amount == null || amount.signum() <= 0) {
-            log.warn("Invalid amount for top-up - amount: {}", amount);
-            throw new IllegalArgumentException("Amount must be positive");
-        }
-        // Ensure at most 2 decimals; reject >2
-        if (amount.scale() > 2) {
-            log.warn("Invalid decimal scale for amount - amount: {}", amount);
-            throw new IllegalArgumentException("Amount cannot have more than 2 decimal places");
-        }
-        // Normalize to 2-decimal fixed scale for arithmetic consistency
-        amount = amount.setScale(2, RoundingMode.HALF_UP);
+        amount = validateAmount(amount);
 
         // 1. Fetch bank account
         BankAccount bankAccount = bankAccountRepository.findByAccountNumber(bankAccountNumber)
@@ -134,17 +155,31 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         // 3. Fetch wallet
-        Wallet recieverWallet = walletRepository.findByUpiHandle(walletUpiHandle)
+        Wallet receiverWallet = walletRepository.findByUpiHandle(walletUpiHandle)
                 .orElseThrow(()-> {
                     log.warn("Receiver wallet not found - upiHandle: {}", walletUpiHandle);
-                    return new ResourceNotFoundException("Reciever's wallet not found: " + walletUpiHandle);
+                    return new ResourceNotFoundException("Receiver's wallet not found: " + walletUpiHandle);
                 });
         
         // 4. Verify ownership of wallet
-        if(!recieverWallet.getUser().getId().equals(userId)){
+        if(!receiverWallet.getUser().getId().equals(userId)){
             log.warn("Wallet ownership mismatch - upiHandle: {}, userId: {}", walletUpiHandle, userId);
             throw new IllegalArgumentException("Wallet does not belong to user");
         }
+
+        Transaction tx = Transaction.builder()
+                    .fromBankAccount(bankAccount)
+                    .toWallet(receiverWallet)
+                    .amount(amount)
+                    .type(TransactionType.BANK_TOPUP)
+                    .status(TransactionStatus.CREATED)
+                    .remarks(remarks)
+                    .build();
+
+        tx = transactionRepository.save(tx);
+
+        // VALIDATING
+        tx = advance(tx);
 
         // 5. Verify PIN
         if(!BCrypt.checkpw(rawBankPin, bankAccount.getBankPinHash())){
@@ -159,27 +194,28 @@ public class TransactionServiceImpl implements TransactionService {
             throw new InsufficientFundsException("Insufficient bank balance");
         }
 
+        // PROCESSING
+        tx = advance(tx);
+
+        // DEBIT_PENDING
+        tx = advance(tx);
+
         // 7. Deduct from bank
         bankAccount.setBalance(bankAccount.getBalance().subtract(amount));
         bankAccountRepository.save(bankAccount);
 
-        // 8. Credit to wallet
-        recieverWallet.setBalance(recieverWallet.getBalance().add(amount));
-        walletRepository.save(recieverWallet);
+        // CREDIT_PENDING
+        tx = advance(tx);
 
-        // 9. Log transaction
-        Transaction tx = Transaction.builder()
-                    .fromBankAccount(bankAccount)
-                    .toWallet(recieverWallet)
-                    .amount(amount)
-                    .type(TransactionType.BANK_TOPUP)
-                    .status(TransactionStatus.SUCCESS)
-                    .remarks(remarks)
-                    .build();
-        
-        Transaction savedTx = transactionRepository.save(tx);
-        log.info("Bank top-up completed - TxnId: {}, Amount: {}", savedTx.getId(), amount);
-        return savedTx;
+        // 8. Credit to wallet
+        receiverWallet.setBalance(receiverWallet.getBalance().add(amount));
+        walletRepository.save(receiverWallet);
+
+        // COMPLETED
+        tx = advance(tx);
+
+        log.info("Bank top-up completed - TxnId: {}, Amount: {}", tx.getId(), amount);
+        return tx;
     }
 
     @Override
@@ -188,19 +224,7 @@ public class TransactionServiceImpl implements TransactionService {
         log.info("Initiating wallet withdrawal - UserId: {}, Wallet: {}, BankAccount: {}, Amount: {}", 
                  userId, walletUpiHandle, bankAccountNumber, amount);
         
-        // 0. Transfer amount preprocessing
-        // Normalize & validate amount defensively
-        if (amount == null || amount.signum() <= 0) {
-            log.warn("Invalid amount for withdrawal - amount: {}", amount);
-            throw new IllegalArgumentException("Amount must be positive");
-        }
-        // Ensure at most 2 decimals; reject >2
-        if (amount.scale() > 2) {
-            log.warn("Invalid decimal scale for amount - amount: {}", amount);
-            throw new IllegalArgumentException("Amount cannot have more than 2 decimal places");
-        }
-        // Normalize to 2-decimal fixed scale for arithmetic consistency
-        amount = amount.setScale(2, RoundingMode.HALF_UP);
+        amount = validateAmount(amount);
 
         // 1. Fetch bank account
         BankAccount bankAccount = bankAccountRepository.findByAccountNumber(bankAccountNumber)
@@ -228,6 +252,20 @@ public class TransactionServiceImpl implements TransactionService {
             throw new IllegalArgumentException("Wallet does not belong to user");
         }
 
+        Transaction tx = Transaction.builder()
+                    .fromWallet(senderWallet)
+                    .toBankAccount(bankAccount)
+                    .amount(amount)
+                    .type(TransactionType.WALLET_WITHDRAW)
+                    .status(TransactionStatus.CREATED)
+                    .remarks(remarks)
+                    .build();
+
+        tx = transactionRepository.save(tx);
+
+        // VALIDATING
+        tx = advance(tx);
+
         // 5. Verify PIN
         if(!upiPinService.validatePin(walletUpiHandle, rawWalletPin)){
             log.warn("Invalid PIN for withdrawal - upiHandle: {}", walletUpiHandle);
@@ -241,27 +279,28 @@ public class TransactionServiceImpl implements TransactionService {
             throw new InsufficientFundsException("Insufficient bank balance");
         }
 
+        // PROCESSING
+        tx = advance(tx);
+
+        // DEBIT_PENDING
+        tx = advance(tx);
+
         // 7. Deduct from wallet
         senderWallet.setBalance(senderWallet.getBalance().subtract(amount));
         walletRepository.save(senderWallet);
+
+        // CREDIT_PENDING
+        tx = advance(tx);
 
         // 8. Credit to bank
         bankAccount.setBalance(bankAccount.getBalance().add(amount));
         bankAccountRepository.save(bankAccount);
 
-        // 9. Log transaction
-        Transaction tx = Transaction.builder()
-                    .fromWallet(senderWallet)
-                    .toBankAccount(bankAccount)
-                    .amount(amount)
-                    .type(TransactionType.WALLET_WITHDRAW)
-                    .status(TransactionStatus.SUCCESS)
-                    .remarks(remarks)
-                    .build();
+        // COMPLETED
+        tx = advance(tx);
         
-        Transaction savedTx = transactionRepository.save(tx);
-        log.info("Wallet withdrawal completed - TxnId: {}, Amount: {}", savedTx.getId(), amount);
-        return savedTx;
+        log.info("Wallet withdrawal completed - TxnId: {}, Amount: {}", tx.getId(), amount);
+        return tx;
     }
 
     @Override
@@ -274,3 +313,4 @@ public class TransactionServiceImpl implements TransactionService {
     }
     
 }
+

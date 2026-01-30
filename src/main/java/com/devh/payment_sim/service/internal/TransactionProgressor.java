@@ -29,30 +29,26 @@ public class TransactionProgressor {
 
     private final TransactionStateMachine stateMachine;
 
-    
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void failTransaction(Transaction tx, String errorMessage) {
-        log.error("[TXN:{}] Transaction failed at state: {} - Error: {}", tx.getId(), tx.getStatus(), errorMessage);
+        log.error("[TXN:{}] Transaction failed at state: {} - Error: {}", tx.getTransactionId(), tx.getStatus(), errorMessage);
         tx.setStatus(TransactionStatus.FAILED);
         tx.setRemarks((tx.getRemarks() != null ? tx.getRemarks() + " | " : "") + "FAILED: " + errorMessage);
         transactionRepository.save(tx);
     }
 
-    @Transactional
     public void rollbackDebit(Wallet sender, BigDecimal amount) {
         log.warn("Rolling back wallet debit - reversing sender balance");
         sender.setBalance(sender.getBalance().add(amount));
         walletRepository.save(sender);
     }
 
-    @Transactional
     public void rollbackBankDebit(BankAccount bankAccount, BigDecimal amount) {
         log.warn("Rolling back bank debit - reversing sender balance");
         bankAccount.setBalance(bankAccount.getBalance().add(amount));
         bankAccountRepository.save(bankAccount);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Transaction advance(Transaction tx) {
         tx.setStatus(stateMachine.next(tx));
         return transactionRepository.save(tx);

@@ -62,7 +62,7 @@ public class WalletController {
                             request.getRawPin(),
                             request.getRemarks()
                         );
-        log.info("===TXN TOPUP COMPLETED=== txn id: {}", tx.getId());
+        log.info("===TXN TOPUP COMPLETED=== txn id: {}", tx.getTransactionId());
         
         TransactionResponse response = EntityToResponseMapper.toTransactionResponse(tx);
 
@@ -83,7 +83,7 @@ public class WalletController {
                             request.getRawPin(), 
                             request.getRemarks()
                             );
-        log.info("===TXN WITHDRAW COMPLETED=== txn id: {}", tx.getId());
+        log.info("===TXN WITHDRAW COMPLETED=== txn id: {}", tx.getTransactionId());
             
         TransactionResponse response = EntityToResponseMapper.toTransactionResponse(tx);
         

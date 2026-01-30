@@ -37,7 +37,7 @@ public class TransactionController {
                         request.getTransferAmount(), 
                         request.getUpiPin(),
                         request.getRemarks());
-        log.info("===TXN SEND MONEY COMPLETED=== txn id: {}", tx.getId());
+        log.info("===TXN SEND MONEY COMPLETED=== txn id: {}", tx.getTransactionId());
         
         TransactionResponse response = EntityToResponseMapper.toTransactionResponse(tx);
 

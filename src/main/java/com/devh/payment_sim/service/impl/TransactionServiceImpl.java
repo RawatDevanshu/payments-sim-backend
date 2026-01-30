@@ -122,7 +122,7 @@ public class TransactionServiceImpl implements TransactionService {
             receiver.setBalance(receiver.getBalance().add(amount));
             walletRepository.save(receiver);
         } catch (Exception ex) {
-            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getId());
+            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
             progressor.rollbackDebit(sender, amount);
             progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
             throw ex;
@@ -131,7 +131,7 @@ public class TransactionServiceImpl implements TransactionService {
         // COMPLETED
         tx = progressor.advance(tx);
 
-        log.info("Wallet transfer completed - TxnId: {}, Amount: {}", tx.getId(), amount);
+        log.info("Wallet transfer completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
         return tx;
     }
 
@@ -216,7 +216,7 @@ public class TransactionServiceImpl implements TransactionService {
         receiverWallet.setBalance(receiverWallet.getBalance().add(amount));
         walletRepository.save(receiverWallet);
         } catch (Exception ex) {
-            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getId());
+            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
             progressor.rollbackBankDebit(bankAccount, amount);
             progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
             throw ex;
@@ -225,7 +225,7 @@ public class TransactionServiceImpl implements TransactionService {
         // COMPLETED
         tx = progressor.advance(tx);
 
-        log.info("Bank top-up completed - TxnId: {}, Amount: {}", tx.getId(), amount);
+        log.info("Bank top-up completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
         return tx;
     }
 
@@ -310,7 +310,7 @@ public class TransactionServiceImpl implements TransactionService {
         bankAccount.setBalance(bankAccount.getBalance().add(amount));
         bankAccountRepository.save(bankAccount);
         } catch (Exception ex) {
-            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getId());
+            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
             progressor.rollbackDebit(senderWallet, amount);
             progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
             throw ex;
@@ -319,7 +319,7 @@ public class TransactionServiceImpl implements TransactionService {
         // COMPLETED
         tx = progressor.advance(tx);
         
-        log.info("Wallet withdrawal completed - TxnId: {}, Amount: {}", tx.getId(), amount);
+        log.info("Wallet withdrawal completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
         return tx;
     }
 

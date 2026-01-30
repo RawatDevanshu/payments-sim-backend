@@ -21,7 +21,7 @@ import com.devh.payment_sim.repository.TransactionRepository;
 import com.devh.payment_sim.repository.WalletRepository;
 import com.devh.payment_sim.service.TransactionService;
 import com.devh.payment_sim.service.UPIPinService;
-import com.devh.payment_sim.statemachine.TransactionStateMachine;
+import com.devh.payment_sim.service.internal.TransactionProgressor;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,17 +31,12 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
 
-    private final TransactionStateMachine stateMachine;
+    private final TransactionProgressor progressor;
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final BankAccountRepository bankAccountRepository;
     private final UPIPinService upiPinService;
-
-    private Transaction advance(Transaction tx) {
-        tx.setStatus(stateMachine.next(tx));
-        return transactionRepository.save(tx);
-    }
 
     private BigDecimal validateAmount(BigDecimal amount){
         
@@ -97,37 +92,44 @@ public class TransactionServiceImpl implements TransactionService {
         tx = transactionRepository.save(tx);
 
         // VALIDATING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         if(!upiPinService.validatePin(sender.getUpiHandle(), upiPin)){
             log.warn("Invalid PIN for transfer - upiHandle: {}", fromUpi);
+            progressor.failTransaction(tx, "Invalid UPI PIN");
             throw new InvalidPinException("Invalid UPI PIN");
         }
 
         if(sender.getBalance().compareTo(amount) < 0){
-            log.warn("Insufficient balance for transfer - upiHandle: {}, Required: {}, Available: {}", 
+            log.warn("Insufficient wallet balance for transfer - upiHandle: {}, Required: {}, Available: {}", 
                      fromUpi, amount, sender.getBalance());
-            throw new InsufficientFundsException("Insufficient Balance");
+            progressor.failTransaction(tx, "Insufficient wallet balance");
+            throw new InsufficientFundsException("Insufficient wallet balance");
         }
 
         // PROCESSING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // DEBIT PENDING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         sender.setBalance(sender.getBalance().subtract(amount));
-
-        // CREDIT PENDING
-        tx = advance(tx);
-
-        receiver.setBalance(receiver.getBalance().add(amount));
-
         walletRepository.save(sender);
-        walletRepository.save(receiver);
+
+        try{
+            // CREDIT PENDING
+            tx = progressor.advance(tx);
+            receiver.setBalance(receiver.getBalance().add(amount));
+            walletRepository.save(receiver);
+        } catch (Exception ex) {
+            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getId());
+            progressor.rollbackDebit(sender, amount);
+            progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
+            throw ex;
+        }
 
         // COMPLETED
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         log.info("Wallet transfer completed - TxnId: {}, Amount: {}", tx.getId(), amount);
         return tx;
@@ -179,40 +181,49 @@ public class TransactionServiceImpl implements TransactionService {
         tx = transactionRepository.save(tx);
 
         // VALIDATING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // 5. Verify PIN
         if(!BCrypt.checkpw(rawBankPin, bankAccount.getBankPinHash())){
             log.warn("Invalid bank PIN for top-up - accountNumber: {}", bankAccountNumber);
-            throw new InvalidPinException("Invalid UPI PIN");
+            progressor.failTransaction(tx, "Invalid Bank PIN");
+            throw new InvalidPinException("Invalid Bank PIN");
         }
 
         // 6. Check Balance
         if(bankAccount.getBalance().compareTo(amount) < 0){
             log.warn("Insufficient bank balance for top-up - accountNumber: {}, Required: {}, Available: {}", 
                      bankAccountNumber, amount, bankAccount.getBalance());
+            progressor.failTransaction(tx, "Insufficient bank balance");
             throw new InsufficientFundsException("Insufficient bank balance");
         }
 
         // PROCESSING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // DEBIT_PENDING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // 7. Deduct from bank
         bankAccount.setBalance(bankAccount.getBalance().subtract(amount));
         bankAccountRepository.save(bankAccount);
 
+        try{
         // CREDIT_PENDING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // 8. Credit to wallet
         receiverWallet.setBalance(receiverWallet.getBalance().add(amount));
         walletRepository.save(receiverWallet);
+        } catch (Exception ex) {
+            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getId());
+            progressor.rollbackBankDebit(bankAccount, amount);
+            progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
+            throw ex;
+        }
 
         // COMPLETED
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         log.info("Bank top-up completed - TxnId: {}, Amount: {}", tx.getId(), amount);
         return tx;
@@ -264,11 +275,12 @@ public class TransactionServiceImpl implements TransactionService {
         tx = transactionRepository.save(tx);
 
         // VALIDATING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // 5. Verify PIN
         if(!upiPinService.validatePin(walletUpiHandle, rawWalletPin)){
             log.warn("Invalid PIN for withdrawal - upiHandle: {}", walletUpiHandle);
+            progressor.failTransaction(tx, "Invalid UPI PIN");
             throw new InvalidPinException("Invalid UPI PIN");
         }
 
@@ -276,28 +288,36 @@ public class TransactionServiceImpl implements TransactionService {
         if(senderWallet.getBalance().compareTo(amount) < 0){
             log.warn("Insufficient wallet balance for withdrawal - upiHandle: {}, Required: {}, Available: {}", 
                      walletUpiHandle, amount, senderWallet.getBalance());
-            throw new InsufficientFundsException("Insufficient bank balance");
+            progressor.failTransaction(tx, "Insufficient wallet balance");
+            throw new InsufficientFundsException("Insufficient wallet balance");
         }
 
         // PROCESSING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // DEBIT_PENDING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // 7. Deduct from wallet
         senderWallet.setBalance(senderWallet.getBalance().subtract(amount));
         walletRepository.save(senderWallet);
 
+        try{
         // CREDIT_PENDING
-        tx = advance(tx);
+        tx = progressor.advance(tx);
 
         // 8. Credit to bank
         bankAccount.setBalance(bankAccount.getBalance().add(amount));
         bankAccountRepository.save(bankAccount);
+        } catch (Exception ex) {
+            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getId());
+            progressor.rollbackDebit(senderWallet, amount);
+            progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
+            throw ex;
+        }
 
         // COMPLETED
-        tx = advance(tx);
+        tx = progressor.advance(tx);
         
         log.info("Wallet withdrawal completed - TxnId: {}, Amount: {}", tx.getId(), amount);
         return tx;

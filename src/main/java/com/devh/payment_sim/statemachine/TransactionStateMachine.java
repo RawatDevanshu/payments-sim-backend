@@ -19,23 +19,23 @@ public class TransactionStateMachine {
         switch(current){
 
             case CREATED:
-                log.info("[TX:{}] CREATED -> VALIDATING", tx.getId());
+                log.info("[TX:{}] CREATED -> VALIDATING", tx.getTransactionId());
                 return VALIDATING;
 
             case VALIDATING:
-                log.info("[TX:{}] VALIDATING -> PROCESSING", tx.getId());
+                log.info("[TX:{}] VALIDATING -> PROCESSING", tx.getTransactionId());
                 return PROCESSING;
 
             case PROCESSING:
-                log.info("[TX:{}] PROCESSING -> DEBIT_PENDING", tx.getId());
+                log.info("[TX:{}] PROCESSING -> DEBIT_PENDING", tx.getTransactionId());
                 return DEBIT_PENDING;
 
             case DEBIT_PENDING:
-                log.info("[TX:{}] DEBIT_PENDING -> CREDIT_PENDING", tx.getId());
+                log.info("[TX:{}] DEBIT_PENDING -> CREDIT_PENDING", tx.getTransactionId());
                 return CREDIT_PENDING;
             
             case CREDIT_PENDING:
-                log.info("[TX:{}] CREDIT_PENDING -> COMPLETED", tx.getId());
+                log.info("[TX:{}] CREDIT_PENDING -> COMPLETED", tx.getTransactionId());
                 return COMPLETED;
             
             // Terminal States
@@ -43,7 +43,7 @@ public class TransactionStateMachine {
                 return current;
 
             default:
-                log.error("[TX:{}] Unknown State: {}", tx.getId(), tx.getStatus());
+                log.error("[TX:{}] Unknown State: {}", tx.getTransactionId(), tx.getStatus());
                 return FAILED;
 
         }

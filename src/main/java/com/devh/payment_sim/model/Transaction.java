@@ -3,6 +3,8 @@ package com.devh.payment_sim.model;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.UuidGenerator;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -15,7 +17,11 @@ import lombok.*;
 public class Transaction {
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // internal DB id
+
+    @UuidGenerator
+    @Column(nullable = false, unique = true, updatable = false)
+    private String transactionId;  // public stable ID
 
     // Wallet -> Wallet transfer
     @ManyToOne

@@ -3,6 +3,7 @@ package com.devh.payment_sim.service.impl;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
@@ -81,6 +82,7 @@ public class TransactionServiceImpl implements TransactionService {
                 });
 
         Transaction tx = Transaction.builder()
+                        .transactionId(UUID.randomUUID().toString())
                         .fromWallet(sender)
                         .toWallet(receiver)
                         .amount(amount)
@@ -170,6 +172,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         Transaction tx = Transaction.builder()
+                    .transactionId(UUID.randomUUID().toString())
                     .fromBankAccount(bankAccount)
                     .toWallet(receiverWallet)
                     .amount(amount)
@@ -264,6 +267,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         Transaction tx = Transaction.builder()
+                    .transactionId(UUID.randomUUID().toString())
                     .fromWallet(senderWallet)
                     .toBankAccount(bankAccount)
                     .amount(amount)

@@ -29,7 +29,7 @@ public class TransactionProgressor {
 
     private final TransactionStateMachine stateMachine;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void failTransaction(Transaction tx, String errorMessage) {
         log.error("[TXN:{}] Transaction failed at state: {} - Error: {}", tx.getTransactionId(), tx.getStatus(), errorMessage);
         tx.setStatus(TransactionStatus.FAILED);

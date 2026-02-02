@@ -19,7 +19,6 @@ public class Transaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // internal DB id
 
-    @UuidGenerator
     @Column(nullable = false, unique = true, updatable = false)
     private String transactionId;  // public stable ID
 

@@ -91,21 +91,21 @@ public class TransactionServiceImpl implements TransactionService {
                         .remarks(remarks)
                         .build();
 
-        tx = transactionRepository.save(tx);
+        tx = progressor.createInitialTransaction(tx);
 
         // VALIDATING
         tx = progressor.advance(tx);
 
         if(!upiPinService.validatePin(sender.getUpiHandle(), upiPin)){
             log.warn("Invalid PIN for transfer - upiHandle: {}", fromUpi);
-            progressor.failTransaction(tx, "Invalid UPI PIN");
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Invalid UPI PIN");
             throw new InvalidPinException("Invalid UPI PIN");
         }
 
         if(sender.getBalance().compareTo(amount) < 0){
             log.warn("Insufficient wallet balance for transfer - upiHandle: {}, Required: {}, Available: {}", 
                      fromUpi, amount, sender.getBalance());
-            progressor.failTransaction(tx, "Insufficient wallet balance");
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Insufficient wallet balance");
             throw new InsufficientFundsException("Insufficient wallet balance");
         }
 
@@ -126,7 +126,7 @@ public class TransactionServiceImpl implements TransactionService {
         } catch (Exception ex) {
             log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
             progressor.rollbackDebit(sender, amount);
-            progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Credit operation failed: " + ex.getMessage());
             throw ex;
         }
 
@@ -171,6 +171,7 @@ public class TransactionServiceImpl implements TransactionService {
             throw new IllegalArgumentException("Wallet does not belong to user");
         }
 
+        // CREATING
         Transaction tx = Transaction.builder()
                     .transactionId(UUID.randomUUID().toString())
                     .fromBankAccount(bankAccount)
@@ -181,7 +182,7 @@ public class TransactionServiceImpl implements TransactionService {
                     .remarks(remarks)
                     .build();
 
-        tx = transactionRepository.save(tx);
+        tx = progressor.createInitialTransaction(tx);
 
         // VALIDATING
         tx = progressor.advance(tx);
@@ -189,7 +190,7 @@ public class TransactionServiceImpl implements TransactionService {
         // 5. Verify PIN
         if(!BCrypt.checkpw(rawBankPin, bankAccount.getBankPinHash())){
             log.warn("Invalid bank PIN for top-up - accountNumber: {}", bankAccountNumber);
-            progressor.failTransaction(tx, "Invalid Bank PIN");
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Invalid Bank PIN");
             throw new InvalidPinException("Invalid Bank PIN");
         }
 
@@ -197,7 +198,7 @@ public class TransactionServiceImpl implements TransactionService {
         if(bankAccount.getBalance().compareTo(amount) < 0){
             log.warn("Insufficient bank balance for top-up - accountNumber: {}, Required: {}, Available: {}", 
                      bankAccountNumber, amount, bankAccount.getBalance());
-            progressor.failTransaction(tx, "Insufficient bank balance");
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Insufficient bank balance");
             throw new InsufficientFundsException("Insufficient bank balance");
         }
 
@@ -221,7 +222,7 @@ public class TransactionServiceImpl implements TransactionService {
         } catch (Exception ex) {
             log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
             progressor.rollbackBankDebit(bankAccount, amount);
-            progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Credit operation failed: " + ex.getMessage());
             throw ex;
         }
 
@@ -276,7 +277,7 @@ public class TransactionServiceImpl implements TransactionService {
                     .remarks(remarks)
                     .build();
 
-        tx = transactionRepository.save(tx);
+        tx = progressor.createInitialTransaction(tx);
 
         // VALIDATING
         tx = progressor.advance(tx);
@@ -284,7 +285,7 @@ public class TransactionServiceImpl implements TransactionService {
         // 5. Verify PIN
         if(!upiPinService.validatePin(walletUpiHandle, rawWalletPin)){
             log.warn("Invalid PIN for withdrawal - upiHandle: {}", walletUpiHandle);
-            progressor.failTransaction(tx, "Invalid UPI PIN");
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Invalid UPI PIN");
             throw new InvalidPinException("Invalid UPI PIN");
         }
 
@@ -292,7 +293,7 @@ public class TransactionServiceImpl implements TransactionService {
         if(senderWallet.getBalance().compareTo(amount) < 0){
             log.warn("Insufficient wallet balance for withdrawal - upiHandle: {}, Required: {}, Available: {}", 
                      walletUpiHandle, amount, senderWallet.getBalance());
-            progressor.failTransaction(tx, "Insufficient wallet balance");
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Insufficient wallet balance");
             throw new InsufficientFundsException("Insufficient wallet balance");
         }
 
@@ -316,7 +317,7 @@ public class TransactionServiceImpl implements TransactionService {
         } catch (Exception ex) {
             log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
             progressor.rollbackDebit(senderWallet, amount);
-            progressor.failTransaction(tx, "Credit operation failed: " + ex.getMessage());
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Credit operation failed: " + ex.getMessage());
             throw ex;
         }
 

@@ -29,11 +29,21 @@ public class TransactionProgressor {
 
     private final TransactionStateMachine stateMachine;
 
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void failTransaction(Transaction tx, String errorMessage) {
-        log.error("[TXN:{}] Transaction failed at state: {} - Error: {}", tx.getTransactionId(), tx.getStatus(), errorMessage);
+    public Transaction createInitialTransaction(Transaction tx) {
+        return transactionRepository.save(tx);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void failTransaction(String transactionId, String failureState, String errorMessage) {
+        log.error("[TXN:{}] Transaction failed at state: {} - Error: {}", transactionId, failureState, errorMessage);
+
+        Transaction tx = transactionRepository.findByTransactionId(transactionId)
+                .orElseThrow(() -> new IllegalStateException("Transaction not found in failTransaction()"));
+                
         tx.setStatus(TransactionStatus.FAILED);
-        tx.setRemarks((tx.getRemarks() != null ? tx.getRemarks() + " | " : "") + "FAILED: " + errorMessage);
+        tx.setRemarks((tx.getRemarks() != null ? tx.getRemarks() + " | " : "") + errorMessage);
         transactionRepository.save(tx);
     }
 

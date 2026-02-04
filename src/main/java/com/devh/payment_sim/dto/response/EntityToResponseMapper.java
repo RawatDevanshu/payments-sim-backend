@@ -45,7 +45,7 @@ public final class EntityToResponseMapper {
         if(t == null) return null;
 
         return TransactionResponse.builder()
-                .id(t.getId())
+                .transactionId(t.getTransactionId())
                 .fromWalletUpi(t.getFromWallet() != null ? t.getFromWallet().getUpiHandle() : null)
                 .toWalletUpi(t.getToWallet() != null ? t.getToWallet().getUpiHandle() : null)
                 .fromBankAccount(t.getFromBankAccount() != null ? maskAccount(t.getFromBankAccount().getAccountNumber()) : null)

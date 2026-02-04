@@ -27,8 +27,12 @@ import com.devh.payment_sim.repository.BankAccountRepository;
 import com.devh.payment_sim.repository.TransactionRepository;
 import com.devh.payment_sim.repository.WalletRepository;
 import com.devh.payment_sim.service.impl.TransactionServiceImpl;
+import com.devh.payment_sim.statemachine.TransactionStateMachine;
 
 class TransactionServiceTest {
+
+    @Mock
+    private TransactionStateMachine stateMachine;
 
     @Mock
     private WalletRepository walletRepository;
@@ -97,7 +101,7 @@ class TransactionServiceTest {
        assertEquals(TransactionType.WALLET_TRANSFER, tx.getType());
 
        verify(walletRepository, times(2)).save(any(Wallet.class));
-       verify(transactionRepository).save(any(Transaction.class));
+       verify(transactionRepository, times(6)).save(any(Transaction.class));
     }
 
     @Test

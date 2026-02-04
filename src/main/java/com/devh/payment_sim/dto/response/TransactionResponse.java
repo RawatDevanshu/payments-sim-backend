@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TransactionResponse {
-    private Long id;
+    private String transactionId;
     private String fromWalletUpi;
     private String toWalletUpi;
     private String fromBankAccount; // masked

@@ -17,8 +17,8 @@ public class SendMoneyRequest {
     @Pattern(regexp= "^[a-zA-Z0-9\\.]+@[a-zA-Z]+$", message= "Invalid Sender UPI handle format, example: john123@bankname")
     private String fromUpiHandle;
 
-    @NotNull(message = "Reciever UPI handle is required")
-    @Pattern(regexp= "^[a-zA-Z0-9\\.]+@[a-zA-Z]+$", message= "Invalid Reciever UPI handle format, example: john123@bankname")
+    @NotNull(message = "Receiver UPI handle is required")
+    @Pattern(regexp= "^[a-zA-Z0-9\\.]+@[a-zA-Z]+$", message= "Invalid Receiver UPI handle format, example: john123@bankname")
     private String toUpiHandle;
 
     @NotNull(message = "Transfer amount is required")

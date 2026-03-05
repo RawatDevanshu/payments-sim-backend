@@ -1,7 +1,10 @@
 package com.devh.payment_sim.controller;
 
-import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.devh.payment_sim.core.ApiResponse;
+import com.devh.payment_sim.core.PageResponse;
 import com.devh.payment_sim.dto.SendMoneyRequest;
 import com.devh.payment_sim.dto.response.EntityToResponseMapper;
 import com.devh.payment_sim.dto.response.TransactionResponse;
@@ -45,13 +49,32 @@ public class TransactionController {
     }
 
     @GetMapping("/wallet/{walletUpiHandle}")
-    public ResponseEntity<ApiResponse<List<TransactionResponse>>> getAllTransactionsForWallet(@PathVariable String walletUpiHandle){
+    public ResponseEntity<ApiResponse<PageResponse<TransactionResponse>>> getAllTransactionsForWallet(@PathVariable String walletUpiHandle, Pageable pageable){
+        
+        Sort defaultSort = Sort.by(
+                    Sort.Order.desc("timestamp"),
+                    Sort.Order.desc("id")
+            );
+
+        Sort sortToUse = pageable.getSort().isUnsorted() ? defaultSort : pageable.getSort();
+
+        
+        Pageable sortedPageable = PageRequest.of(
+                    pageable.getPageNumber(),
+                    pageable.getPageSize(),
+                    sortToUse
+            );
+
+
         log.info("===FETCH WALLET TXN(S) INITIATED=== Upi Handle: {}", walletUpiHandle);
-        List<Transaction> transactions = transactionService.getTransactionsByWalletUpi(walletUpiHandle);
-        log.info("===FETCH WALLET TXN(S) COMPLETED=== Count: {}, Upi Handle: {}", transactions.size(), walletUpiHandle);
+        Page<Transaction> page = transactionService.getTransactionsByWalletUpi(walletUpiHandle, sortedPageable);
+        
+        PageResponse<TransactionResponse> body = PageResponse.from(
+                    page.map(EntityToResponseMapper::toTransactionResponse)
+            );
 
-        List<TransactionResponse> response = transactions.stream().map(EntityToResponseMapper::toTransactionResponse).toList();
+        log.info("===FETCH WALLET TXN(S) COMPLETED=== Count: {}, Upi Handle: {}", body.getItems().size(), walletUpiHandle);
 
-        return ResponseEntity.ok(ApiResponse.success("All transactions retieved for given wallet handle", response));
+        return ResponseEntity.ok(ApiResponse.success("All transactions retieved for given wallet handle", body));
     }
 }

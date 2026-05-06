@@ -2,6 +2,7 @@ package com.devh.payment_sim.service.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -339,9 +340,9 @@ public class TransactionServiceImpl implements TransactionService {
                     ? pageable
                     : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
                             Sort.by(Sort.Order.desc("timestamp"), Sort.Order.desc("id")));
-
         
-        return transactionRepository.findByFromWalletOrToWallet(wallet, wallet, effectivePageable);
+        Page<Transaction> allTransactions = transactionRepository.findByFromWalletOrToWallet(wallet, wallet, effectivePageable);
+        return allTransactions;
 
     }
     

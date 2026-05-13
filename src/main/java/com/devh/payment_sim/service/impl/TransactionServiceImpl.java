@@ -5,6 +5,10 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -326,11 +330,19 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public List<Transaction> getTransactionsByWalletUpi(String walletUpiHandle) {
+    public Page<Transaction> getTransactionsByWalletUpi(String walletUpiHandle, Pageable pageable) {
         Wallet wallet = walletRepository.findByUpiHandle(walletUpiHandle)
                 .orElseThrow(()->new ResourceNotFoundException("Wallet not found: "+walletUpiHandle));
+
         
-        return transactionRepository.findByFromWalletOrToWallet(wallet, wallet);
+        // Enforce a default sort if none provided
+            Pageable effectivePageable = pageable.isPaged() && pageable.getSort().isSorted()
+                    ? pageable
+                    : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                            Sort.by(Sort.Order.desc("timestamp"), Sort.Order.desc("id")));
+        
+        Page<Transaction> allTransactions = transactionRepository.findByFromWalletOrToWallet(wallet, wallet, effectivePageable);
+        return allTransactions;
 
     }
     

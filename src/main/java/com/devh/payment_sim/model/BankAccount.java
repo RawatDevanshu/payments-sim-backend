@@ -8,20 +8,25 @@ import lombok.*;
 
 @Entity
 @Table(name = "bankaccounts")
-@Data
+@Getter
+@Setter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class BankAccount {
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Column(unique = true, nullable = false)
+    @ToString.Include
     private String accountNumber;
 
     @Column(nullable = false)

@@ -2,6 +2,7 @@ package com.devh.payment_sim.service;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import java.math.BigDecimal;
@@ -13,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 
 import com.devh.payment_sim.exception.InsufficientFundsException;
@@ -27,8 +31,16 @@ import com.devh.payment_sim.repository.BankAccountRepository;
 import com.devh.payment_sim.repository.TransactionRepository;
 import com.devh.payment_sim.repository.WalletRepository;
 import com.devh.payment_sim.service.impl.TransactionServiceImpl;
+import com.devh.payment_sim.service.internal.TransactionProgressor;
+import com.devh.payment_sim.statemachine.TransactionStateMachine;
 
 class TransactionServiceTest {
+
+    @Mock
+    private TransactionProgressor progressor;
+
+    @Mock
+    private TransactionStateMachine stateMachine;
 
     @Mock
     private WalletRepository walletRepository;
@@ -81,6 +93,9 @@ class TransactionServiceTest {
         when(transactionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(walletRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(bankAccountRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        
+        when(progressor.createInitialTransaction(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(progressor.advance(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
@@ -97,7 +112,6 @@ class TransactionServiceTest {
        assertEquals(TransactionType.WALLET_TRANSFER, tx.getType());
 
        verify(walletRepository, times(2)).save(any(Wallet.class));
-       verify(transactionRepository).save(any(Transaction.class));
     }
 
     @Test
@@ -187,20 +201,27 @@ class TransactionServiceTest {
     @Test
     void getTransactionsByWalletUpi_success() {
         when(walletRepository.findByUpiHandle("sender@upi")).thenReturn(Optional.of(senderWallet));
-        when(transactionRepository.findByFromWalletOrToWallet(senderWallet, senderWallet))
-                .thenReturn(List.of(Transaction.builder().id(1L).build()));
+        // prepare pageable and page
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Transaction> pageResult = new org.springframework.data.domain.PageImpl<>(
+                List.of(Transaction.builder().id(1L).build()), pageable, 1);
 
-        List<Transaction> txs = transactionService.getTransactionsByWalletUpi("sender@upi");
+        when(transactionRepository.findByFromWalletOrToWallet(eq(senderWallet), eq(senderWallet), any(Pageable.class)))
+                .thenReturn(pageResult);
 
-        assertEquals(1, txs.size());
+        Page<Transaction> txPage = transactionService.getTransactionsByWalletUpi("sender@upi", pageable);
+
+        assertEquals(1, txPage.getTotalElements());
+        assertEquals(1, txPage.getContent().size());
     }
 
     @Test
     void getTransactionsByWalletUpi_walletNotFound_throwsResourceNotFound() {
         when(walletRepository.findByUpiHandle("missing@upi")).thenReturn(Optional.empty());
 
+        Pageable pageable = PageRequest.of(0, 10);
         assertThrows(ResourceNotFoundException.class,
-                () -> transactionService.getTransactionsByWalletUpi("missing@upi"));
+                () -> transactionService.getTransactionsByWalletUpi("missing@upi", pageable));
     }
 
 }

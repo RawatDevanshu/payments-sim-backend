@@ -100,8 +100,8 @@ class TransactionServiceTest {
 
     @Test
     void testSendMoney_Success() {
-       when(walletRepository.findByUpiHandle("sender@upi")).thenReturn(Optional.of(senderWallet));
-       when(walletRepository.findByUpiHandle("receiver@upi")).thenReturn(Optional.of(receiverWallet));
+       when(walletRepository.findByUpiHandleWithLock("sender@upi")).thenReturn(Optional.of(senderWallet));
+       when(walletRepository.findByUpiHandleWithLock("receiver@upi")).thenReturn(Optional.of(receiverWallet));
        when(upiPinService.validatePin("sender@upi", "1234")).thenReturn(true);
 
        Transaction tx = transactionService.sendMoney("sender@upi", "receiver@upi", BigDecimal.valueOf(250), "1234", "payment");
@@ -122,8 +122,8 @@ class TransactionServiceTest {
 
     @Test
     void testSendMoney_invalidPin_throwsInvalidPinException() {
-       when(walletRepository.findByUpiHandle("sender@upi")).thenReturn(Optional.of(senderWallet));
-       when(walletRepository.findByUpiHandle("receiver@upi")).thenReturn(Optional.of(receiverWallet));
+       when(walletRepository.findByUpiHandleWithLock("sender@upi")).thenReturn(Optional.of(senderWallet));
+       when(walletRepository.findByUpiHandleWithLock("receiver@upi")).thenReturn(Optional.of(receiverWallet));
        when(upiPinService.validatePin("sender@upi", "wrongpin")).thenReturn(false);
 
        assertThrows(InvalidPinException.class, 
@@ -134,8 +134,8 @@ class TransactionServiceTest {
     @Test
     void testSendMoney_insufficientFunds_throwsInsufficientFundsEx() {
         senderWallet.setBalance(BigDecimal.valueOf(50));
-        when(walletRepository.findByUpiHandle("sender@upi")).thenReturn(Optional.of(senderWallet));
-        when(walletRepository.findByUpiHandle("receiver@upi")).thenReturn(Optional.of(receiverWallet));
+        when(walletRepository.findByUpiHandleWithLock("sender@upi")).thenReturn(Optional.of(senderWallet));
+        when(walletRepository.findByUpiHandleWithLock("receiver@upi")).thenReturn(Optional.of(receiverWallet));
         when(upiPinService.validatePin("sender@upi", "1234")).thenReturn(true);
 
         assertThrows(InsufficientFundsException.class, 

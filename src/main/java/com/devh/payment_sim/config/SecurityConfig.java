@@ -23,6 +23,7 @@ public class SecurityConfig {
     private final JwtRequestFilter jwtRequestFilter;
     private final JwtAuthEntryPoint authEntryPoint;
     private final JwtAccessDeniedHandler accessDeniedHandler;
+    private final RateLimitingFilter rateLimitingFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -57,7 +58,8 @@ public class SecurityConfig {
             )
 
             // Add JWT filter before spring's username/password filter
-            .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(rateLimitingFilter, JwtRequestFilter.class);
 
             return http.build();
     }

@@ -2,7 +2,6 @@ package com.devh.payment_sim.service.impl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -74,16 +73,23 @@ public class TransactionServiceImpl implements TransactionService {
             throw new IllegalArgumentException("Self-payments are not allowed");
         }
 
-        Wallet sender = walletRepository.findByUpiHandle(fromUpi)
-                .orElseThrow(()-> {
-                    log.warn("Sender wallet not found - upiHandle: {}", fromUpi);
-                    return new ResourceNotFoundException("Sender's wallet not found: " + fromUpi);
+        // Determine lock order to prevent circular deadlocks: lock wallets in lexicographical order of UPI handles
+        String firstLockUpi = fromUpi.compareTo(toUpi) < 0 ? fromUpi : toUpi;
+        String secondLockUpi = fromUpi.compareTo(toUpi) < 0 ? toUpi : fromUpi;
+
+        Wallet lock1 = walletRepository.findByUpiHandleWithLock(firstLockUpi)
+                .orElseThrow(() -> {
+                    log.warn("Wallet not found for locking - upiHandle: {}", firstLockUpi);
+                    return new ResourceNotFoundException("Wallet not found: " + firstLockUpi);
                 });
-        Wallet receiver = walletRepository.findByUpiHandle(toUpi)
-                .orElseThrow(()-> {
-                    log.warn("Receiver wallet not found - upiHandle: {}", toUpi);
-                    return new ResourceNotFoundException("Receiver's wallet not found: " + toUpi);
+        Wallet lock2 = walletRepository.findByUpiHandleWithLock(secondLockUpi)
+                .orElseThrow(() -> {
+                    log.warn("Wallet not found for locking - upiHandle: {}", secondLockUpi);
+                    return new ResourceNotFoundException("Wallet not found: " + secondLockUpi);
                 });
+
+        Wallet sender = lock1.getUpiHandle().equals(fromUpi) ? lock1 : lock2;
+        Wallet receiver = lock1.getUpiHandle().equals(toUpi) ? lock1 : lock2;
 
         Transaction tx = Transaction.builder()
                         .transactionId(UUID.randomUUID().toString())

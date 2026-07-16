@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: paymentsim-db
+    environment:
+      POSTGRES_DB: paymentsim
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+  
+  app:
+    build: .
+    container_name: paymentsim-app
+    ports:
+    - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/paymentsim
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres123
+      JWT_SECRET: my-super-secret-jwt-key-for-docker-dev-only-change-in-prod
+    depends_on:
+      db:
+        condition: service_healthy
+  
+volumes:
+  pgdata:

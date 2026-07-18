@@ -103,47 +103,45 @@ public class TransactionServiceImpl implements TransactionService {
 
         tx = progressor.createInitialTransaction(tx);
 
-        // VALIDATING
-        tx = progressor.advance(tx);
+        try {
+            // VALIDATING
+            tx = progressor.advance(tx);
 
-        if(!upiPinService.validatePin(sender.getUpiHandle(), upiPin)){
-            log.warn("Invalid PIN for transfer - upiHandle: {}", fromUpi);
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Invalid UPI PIN");
-            throw new InvalidPinException("Invalid UPI PIN");
-        }
+            if(!upiPinService.validatePin(sender.getUpiHandle(), upiPin)){
+                log.warn("Invalid PIN for transfer - upiHandle: {}", fromUpi);
+                throw new InvalidPinException("Invalid UPI PIN");
+            }
 
-        if(sender.getBalance().compareTo(amount) < 0){
-            log.warn("Insufficient wallet balance for transfer - upiHandle: {}, Required: {}, Available: {}", 
-                     fromUpi, amount, sender.getBalance());
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Insufficient wallet balance");
-            throw new InsufficientFundsException("Insufficient wallet balance");
-        }
+            if(sender.getBalance().compareTo(amount) < 0){
+                log.warn("Insufficient wallet balance for transfer - upiHandle: {}, Required: {}, Available: {}", 
+                         fromUpi, amount, sender.getBalance());
+                throw new InsufficientFundsException("Insufficient wallet balance");
+            }
 
-        // PROCESSING
-        tx = progressor.advance(tx);
+            // PROCESSING
+            tx = progressor.advance(tx);
 
-        // DEBIT PENDING
-        tx = progressor.advance(tx);
+            // DEBIT PENDING
+            tx = progressor.advance(tx);
 
-        sender.setBalance(sender.getBalance().subtract(amount));
-        walletRepository.save(sender);
+            sender.setBalance(sender.getBalance().subtract(amount));
+            walletRepository.save(sender);
 
-        try{
             // CREDIT PENDING
             tx = progressor.advance(tx);
             receiver.setBalance(receiver.getBalance().add(amount));
             walletRepository.save(receiver);
+
+            // COMPLETED
+            tx = progressor.advance(tx);
+
+            log.info("Wallet transfer completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
+            return tx;
         } catch (Exception ex) {
-            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Credit operation failed: " + ex.getMessage());
+            log.error("[TXN:{}] Wallet transfer failed - Error: {}", tx.getTransactionId(), ex.getMessage());
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), ex.getMessage());
             throw ex;
         }
-
-        // COMPLETED
-        tx = progressor.advance(tx);
-
-        log.info("Wallet transfer completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
-        return tx;
     }
 
     @Override
@@ -193,52 +191,50 @@ public class TransactionServiceImpl implements TransactionService {
 
         tx = progressor.createInitialTransaction(tx);
 
-        // VALIDATING
-        tx = progressor.advance(tx);
+        try {
+            // VALIDATING
+            tx = progressor.advance(tx);
 
-        // 5. Verify PIN
-        if(!BCrypt.checkpw(rawBankPin, bankAccount.getBankPinHash())){
-            log.warn("Invalid bank PIN for top-up - accountNumber: {}", bankAccountNumber);
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Invalid Bank PIN");
-            throw new InvalidPinException("Invalid Bank PIN");
-        }
+            // 5. Verify PIN
+            if(!BCrypt.checkpw(rawBankPin, bankAccount.getBankPinHash())){
+                log.warn("Invalid bank PIN for top-up - accountNumber: {}", bankAccountNumber);
+                throw new InvalidPinException("Invalid Bank PIN");
+            }
 
-        // 6. Check Balance
-        if(bankAccount.getBalance().compareTo(amount) < 0){
-            log.warn("Insufficient bank balance for top-up - accountNumber: {}, Required: {}, Available: {}", 
-                     bankAccountNumber, amount, bankAccount.getBalance());
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Insufficient bank balance");
-            throw new InsufficientFundsException("Insufficient bank balance");
-        }
+            // 6. Check Balance
+            if(bankAccount.getBalance().compareTo(amount) < 0){
+                log.warn("Insufficient bank balance for top-up - accountNumber: {}, Required: {}, Available: {}", 
+                         bankAccountNumber, amount, bankAccount.getBalance());
+                throw new InsufficientFundsException("Insufficient bank balance");
+            }
 
-        // PROCESSING
-        tx = progressor.advance(tx);
+            // PROCESSING
+            tx = progressor.advance(tx);
 
-        // DEBIT_PENDING
-        tx = progressor.advance(tx);
+            // DEBIT_PENDING
+            tx = progressor.advance(tx);
 
-        // 7. Deduct from bank
-        bankAccount.setBalance(bankAccount.getBalance().subtract(amount));
-        bankAccountRepository.save(bankAccount);
+            // 7. Deduct from bank
+            bankAccount.setBalance(bankAccount.getBalance().subtract(amount));
+            bankAccountRepository.save(bankAccount);
 
-        try{
-        // CREDIT_PENDING
-        tx = progressor.advance(tx);
+            // CREDIT_PENDING
+            tx = progressor.advance(tx);
 
-        // 8. Credit to wallet
-        receiverWallet.setBalance(receiverWallet.getBalance().add(amount));
-        walletRepository.save(receiverWallet);
+            // 8. Credit to wallet
+            receiverWallet.setBalance(receiverWallet.getBalance().add(amount));
+            walletRepository.save(receiverWallet);
+
+            // COMPLETED
+            tx = progressor.advance(tx);
+
+            log.info("Bank top-up completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
+            return tx;
         } catch (Exception ex) {
-            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Credit operation failed: " + ex.getMessage());
+            log.error("[TXN:{}] Bank top-up failed - Error: {}", tx.getTransactionId(), ex.getMessage());
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), ex.getMessage());
             throw ex;
         }
-
-        // COMPLETED
-        tx = progressor.advance(tx);
-
-        log.info("Bank top-up completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
-        return tx;
     }
 
     @Override
@@ -287,52 +283,50 @@ public class TransactionServiceImpl implements TransactionService {
 
         tx = progressor.createInitialTransaction(tx);
 
-        // VALIDATING
-        tx = progressor.advance(tx);
+        try {
+            // VALIDATING
+            tx = progressor.advance(tx);
 
-        // 5. Verify PIN
-        if(!upiPinService.validatePin(walletUpiHandle, rawWalletPin)){
-            log.warn("Invalid PIN for withdrawal - upiHandle: {}", walletUpiHandle);
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Invalid UPI PIN");
-            throw new InvalidPinException("Invalid UPI PIN");
-        }
+            // 5. Verify PIN
+            if(!upiPinService.validatePin(walletUpiHandle, rawWalletPin)){
+                log.warn("Invalid PIN for withdrawal - upiHandle: {}", walletUpiHandle);
+                throw new InvalidPinException("Invalid UPI PIN");
+            }
 
-        // 6. Check Balance
-        if(senderWallet.getBalance().compareTo(amount) < 0){
-            log.warn("Insufficient wallet balance for withdrawal - upiHandle: {}, Required: {}, Available: {}", 
-                     walletUpiHandle, amount, senderWallet.getBalance());
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Insufficient wallet balance");
-            throw new InsufficientFundsException("Insufficient wallet balance");
-        }
+            // 6. Check Balance
+            if(senderWallet.getBalance().compareTo(amount) < 0){
+                log.warn("Insufficient wallet balance for withdrawal - upiHandle: {}, Required: {}, Available: {}", 
+                         walletUpiHandle, amount, senderWallet.getBalance());
+                throw new InsufficientFundsException("Insufficient wallet balance");
+            }
 
-        // PROCESSING
-        tx = progressor.advance(tx);
+            // PROCESSING
+            tx = progressor.advance(tx);
 
-        // DEBIT_PENDING
-        tx = progressor.advance(tx);
+            // DEBIT_PENDING
+            tx = progressor.advance(tx);
 
-        // 7. Deduct from wallet
-        senderWallet.setBalance(senderWallet.getBalance().subtract(amount));
-        walletRepository.save(senderWallet);
+            // 7. Deduct from wallet
+            senderWallet.setBalance(senderWallet.getBalance().subtract(amount));
+            walletRepository.save(senderWallet);
 
-        try{
-        // CREDIT_PENDING
-        tx = progressor.advance(tx);
+            // CREDIT_PENDING
+            tx = progressor.advance(tx);
 
-        // 8. Credit to bank
-        bankAccount.setBalance(bankAccount.getBalance().add(amount));
-        bankAccountRepository.save(bankAccount);
+            // 8. Credit to bank
+            bankAccount.setBalance(bankAccount.getBalance().add(amount));
+            bankAccountRepository.save(bankAccount);
+
+            // COMPLETED
+            tx = progressor.advance(tx);
+            
+            log.info("Wallet withdrawal completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
+            return tx;
         } catch (Exception ex) {
-            log.error("[TXN:{}] Credit operation failed, rolling back debit", tx.getTransactionId());
-            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), "Credit operation failed: " + ex.getMessage());
+            log.error("[TXN:{}] Wallet withdrawal failed - Error: {}", tx.getTransactionId(), ex.getMessage());
+            progressor.failTransaction(tx.getTransactionId(), tx.getStatus().name(), ex.getMessage());
             throw ex;
         }
-
-        // COMPLETED
-        tx = progressor.advance(tx);
-        
-        log.info("Wallet withdrawal completed - TxnId: {}, Amount: {}", tx.getTransactionId(), amount);
-        return tx;
     }
 
     @Override

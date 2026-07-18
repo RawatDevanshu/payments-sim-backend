@@ -1,111 +1,76 @@
-# 💳 Payment Simulation Backend
+# 💳 Real-Time Payment Simulation Engine
 
-A Spring Boot backend that simulates UPI/wallet payments.  
-Features include JWT-based authentication, secure bank PIN validation, wallet top-ups, and transaction logging — designed to mirror real-world payment flows like PhonePe or GPay.
-
----
-
-## 📑 Table of Contents
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-- [Setup & Installation](#setup--installation)
-- [API Endpoints](#api-endpoints)
-- [Security](#security)
-- [Future Enhancements](#future-enhancements)
+A production-ready Spring Boot backend engine simulating UPI and digital wallet payment systems (e.g., PhonePe, GPay). Built to showcase enterprise backend patterns: **concurrency-safe balance transfers, idempotency guarantees, staged state processing, and API rate-limiting**.
 
 ---
 
-## 🚀 Features
-- User registration & login with JWT
-- Bank account creation with PIN (hashed via BCrypt)
-- Wallet creation with UPI handle
-- Top-up wallet from linked bank account
-- Wallet-to-wallet transactions with wallet PIN
-- Global exception handling with clean API responses
-- Swagger/OpenAPI documentation
+## 🛠️ System Design Decisions (What Makes This Project Unique)
+
+### 1. Concurrency Control & Deadlock Prevention
+*   **Challenge**: When two users simultaneously transfer money to each other, a circular dependency of database locks can occur (User A locks Wallet A and waits for Wallet B; User B locks Wallet B and waits for Wallet A), leading to database **deadlocks**.
+*   **Solution**: Implemented a **lexicographical lock-ordering algorithm** on UPI handles. Wallets are locked in a deterministic alphanumeric order (using pessimistic write locks `SELECT FOR UPDATE`). This guarantees that concurrent transfers between the same users always acquire locks in the exact same sequence, preventing deadlocks.
+*   **Validation**: Tested via multi-threaded JUnit integration tests using `CountDownLatch` and `ExecutorService` to verify balance integrity and double-spend protection.
+
+### 2. Idempotency Guarantees
+*   **Challenge**: Network instability can cause clients to retry a payment request. Without idempotency, this results in double-charging the user.
+*   **Solution**: Created a custom, database-backed idempotency filter. Requests containing an `Idempotency-Key` header are tracked:
+    *   `PROCESSING`: Subsequent duplicate requests are rejected to prevent race conditions.
+    *   `SUCCESS` / `FAILED`: The server bypasses execution and immediately returns the cached API response from the database.
+
+### 3. Staged Transaction Lifecycle (State Machine Pattern)
+*   To ensure auditability, payments are not updated in a single step. Transactions transition through distinct database states:
+    `CREATED ──> VALIDATING ──> PROCESSING ──> DEBIT_PENDING ──> CREDIT_PENDING ──> COMPLETED/FAILED`
+    Any unexpected validation or business logic exception (e.g., PIN not set, invalid PIN, or database errors) is caught by a global transaction handler, updating the record status to `FAILED` with details, and executing a clean rollback of the balance changes.
+
+### 4. API Rate Limiting
+*   Integrated **Bucket4j** to throttle API requests at the servlet filter level. Requests are rate-limited based on JWT User Principal or Fallback Client IP (using token bucket algorithm), preventing brute-force attacks on PINs and auth endpoints.
 
 ---
 
-## 🛠 Tech Stack
-- **Backend:** Spring Boot 3, Spring Security 6, JPA/Hibernate  
-- **Database:** PostgreSQL  
-- **Migration:** Flyway  
-- **Auth:** JWT (jjwt library)  
-- **Validation:** Spring Validation  
-- **Docs:** Springdoc OpenAPI (Swagger UI)
+## 💻 Tech Stack
+*   **Core Framework**: Spring Boot 3, Spring Security 6 (JWT stateless authentication)
+*   **Database**: PostgreSQL (Development/Production), H2 (In-memory test scope)
+*   **Migrations**: Flyway Schema Migration
+*   **Testing**: JUnit 5, Spring Boot Test (Concurrency Stress Tests)
+*   **Containerization**: Docker & Docker Compose
 
 ---
 
-## 🏗 Architecture
+## 🔌 API Architecture
 
-src/main/java/com/example/paymentsimulation \
-├── config/        # Security & JWT configs \
-├── controller/    # REST endpoints \
-├── dto/           # Request/response DTOs \
-├── entity/        # JPA entities \
-├── repository/    # Data access layer \
-├── service/       # Business logic \
-├── exception/     # Global error handling \
-└── util/          # Helpers (ApiResponse, etc.)
+### Authentication
+*   `POST /api/auth/register` - Create user profile
+*   `POST /api/auth/login` - Authenticate user (issues HTTP-Only Secure JWT Cookie)
 
----
+### Wallets & Banking
+*   `POST /api/bank-accounts/open` - Link a new bank account (defaults with seed balance)
+*   `POST /api/wallets/create` - Provision a wallet linked to a unique UPI handle
+*   `POST /api/pins/set` - Configure secure hashed PIN (BCrypt)
 
-## ⚙️ Setup & Installation
-
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/yourname/payment-sim.git
-   cd payment-sim
-
-
-- Configure environment variables in .env
-DB_URL=jdbc:postgresql://localhost:5432/paymentsim
-DB_USER=postgres
-DB_PASSWORD=yourpassword
-JWT_SECRET=your-secret-key
-- Run migrations
-mvn flyway:migrate
-
-
-- Start the app
-mvn spring-boot:run
-
-
-
-📡 API Endpoints
-Auth
-- POST /api/auth/register → Register new user
-- POST /api/auth/login → Login & get JWT
-Bank Accounts
-- POST /api/bank-accounts → Create & link bank account (requires JWT)
-Wallets
-- POST /api/wallets → Create wallet with UPI handle
-- POST /api/wallets/topup → Transfer money from bank to wallet (requires bank PIN)
-Transactions
-- POST /api/transactions → Wallet-to-wallet transfer (requires wallet PIN)
-
-🔐 Security
-- JWT for authentication
-- Role-based authorization with Spring Security
-- BCrypt-hashed PINs for sensitive operations
-- Rate limiting for PIN attempts (planned)
-- Global exception handling for consistent error codes
-
-🌱 Future Enhancements
-- Fraud detection rules
-- Scheduled payments
-- Analytics dashboard
-- Multi-bank linking
-- Rate limiting middleware
-
-🎯 Why This Project?
-This project demonstrates real-world backend engineering:
-- Secure authentication with JWT
-- Layered security using PINs
-- Clean architecture with DTOs, services, and repositories
-- Database migrations and validation
-- Production-grade error handling
-It’s designed to showcase backend skills in Java, Spring Boot, and security best practices, making it a strong portfolio piece for interviews and team adoption.
+### Transaction Processing
+*   `POST /api/wallets/topup` - Transfer funds from Bank Account to Wallet (requires Bank PIN)
+*   `POST /api/wallets/withdraw` - Transfer funds from Wallet to Bank Account (requires UPI PIN)
+*   `POST /api/transactions/transfer` - Wallet-to-wallet transfer (requires UPI PIN + `Idempotency-Key` header)
+*   `GET /api/transactions/wallet/{upiHandle}` - Paginated audit log of transaction history
 
 ---
+
+## 🚀 Local Development Setup
+
+1.  **Clone the Repo**:
+    ```bash
+    git clone https://github.com/your-username/payment-sim-backend.git
+    cd payment-sim-backend
+    ```
+2.  **Spin up Postgres Container**:
+    ```bash
+    docker-compose up -d db
+    ```
+3.  **Run the Server**:
+    ```bash
+    ./mvnw spring-boot:run
+    ```
+4.  **Execute Integration Tests**:
+    ```bash
+    ./mvnw test
+    ```

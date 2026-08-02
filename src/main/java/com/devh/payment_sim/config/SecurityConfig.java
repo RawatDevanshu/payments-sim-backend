@@ -47,7 +47,10 @@ public class SecurityConfig {
                     "/api/auth/login",
                     "/v3/api-docs/**",
                     "/swagger-ui/**",
-                    "/swagger-ui.html"
+                    "/swagger-ui.html",
+                    // Actuator health/info are public so containers & LB can probe them
+                    "/actuator/health",
+                    "/actuator/info"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

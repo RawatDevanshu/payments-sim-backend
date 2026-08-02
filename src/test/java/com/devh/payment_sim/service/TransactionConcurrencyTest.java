@@ -10,15 +10,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
+import com.devh.payment_sim.config.AbstractPostgresTest;
 import com.devh.payment_sim.model.User;
 import com.devh.payment_sim.model.Wallet;
 import com.devh.payment_sim.repository.UserRepository;
 import com.devh.payment_sim.repository.WalletRepository;
 
-@SpringBootTest
-public class TransactionConcurrencyTest {
+public class TransactionConcurrencyTest extends AbstractPostgresTest {
     
     @Autowired
     private TransactionService transactionService;

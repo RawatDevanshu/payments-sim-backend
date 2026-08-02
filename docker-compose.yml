@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16-alpine
     container_name: paymentsim-db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: paymentsim
       POSTGRES_USER: postgres
@@ -15,12 +16,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-  
+
   app:
     build: .
     container_name: paymentsim-app
+    restart: unless-stopped
     ports:
-    - "8080:8080"
+      - "8080:8080"
     environment:
       DB_URL: jdbc:postgresql://db:5432/paymentsim
       DB_USERNAME: postgres
@@ -29,6 +31,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
-  
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 volumes:
   pgdata:

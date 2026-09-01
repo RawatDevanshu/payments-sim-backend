@@ -57,20 +57,25 @@ A production-ready Spring Boot backend engine simulating UPI and digital wallet 
 
 ## 🚀 Local Development Setup
 
-1.  **Clone the Repo**:
+### Option 1: Using Docker (Recommended)
+1.  **Start Services**: This will start both the PostgreSQL database and the Spring Boot application container.
     ```bash
-    git clone https://github.com/your-username/payment-sim-backend.git
-    cd payment-sim-backend
+    docker-compose up -d
     ```
-2.  **Spin up Postgres Container**:
+2.  **View Logs**: Monitor the application logs to ensure it has started correctly.
     ```bash
-    docker-compose up -d db
+    docker logs -f paymentsim-app
     ```
-3.  **Run the Server**:
+
+### Option 2: Without Docker (Local PostgreSQL Required)
+1.  **Configure DB**: Ensure a local PostgreSQL instance is running and update `src/main/resources/application.properties` (or `application-local.properties`) with your DB credentials.
+2.  **Run the Server**:
     ```bash
     ./mvnw spring-boot:run
     ```
-4.  **Execute Integration Tests**:
-    ```bash
-    ./mvnw test
-    ```
+
+### Running Tests
+Regardless of your setup, you can execute integration tests:
+```bash
+./mvnw test
+```

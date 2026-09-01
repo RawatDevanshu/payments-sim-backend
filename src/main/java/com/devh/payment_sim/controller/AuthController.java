@@ -8,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -52,7 +54,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest authRequest) {
+    public ResponseEntity<ApiResponse<Void>> login(@RequestBody AuthRequest authRequest) {
         log.info("===USER LOGIN INITIATED=== Email: {}", authRequest.getEmail());
         
         // Check if user exists
@@ -86,7 +88,15 @@ public class AuthController {
 
         return ResponseEntity.ok()
         .header(HttpHeaders.SET_COOKIE, cookie.toString())
-        .build();
+        .body(ApiResponse.success("Login successful", null));
     }
-    
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> getMyProfile() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userService.getUserByEmail(email);
+
+        UserResponse response = EntityToResponseMapper.toUserResponse(user);
+        return ResponseEntity.ok(ApiResponse.success("User profile retrieved successfully", response));
+    }
 }

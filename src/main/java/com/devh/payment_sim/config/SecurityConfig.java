@@ -12,6 +12,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,7 +35,7 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
 
             // CORS with defaults
-            .cors(Customizer.withDefaults())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
             // auth exception handling
             .exceptionHandling(ex -> ex
@@ -75,5 +78,18 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        var cors = new CorsConfiguration();
+        cors.setAllowedOrigins(java.util.List.of("http://localhost:3000"));
+        cors.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE"));
+        cors.setAllowedHeaders(java.util.List.of("*"));
+        cors.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", cors);
+        return source;
     }
 }
